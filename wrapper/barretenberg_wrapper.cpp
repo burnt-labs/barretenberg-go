@@ -15,10 +15,7 @@
 #include "barretenberg/common/serialize.hpp"          // from_buffer<T>, many_from_buffer
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"    // UltraZKFlavor
 #include "barretenberg/ultra_honk/ultra_verifier.hpp" // UltraVerifier_
-#include "barretenberg/srs/global_crs.hpp"            // init_net_crs_factory, init_file_crs_factory, bb_crs_path
-
-#include <atomic>
-#include <mutex>
+#include "barretenberg/srs/global_crs.hpp"            // init_net_crs_factory, bb_crs_path
 
 // Version information
 #ifndef BB_VERSION
@@ -53,10 +50,6 @@ namespace
         uint32_t num_public_inputs;
         uint64_t circuit_size;
     };
-
-    // CRS initialisation state
-    std::once_flag g_crs_init_flag;
-    std::atomic<bool> g_crs_initialized{false};
 
 } // anonymous namespace
 
@@ -156,54 +149,6 @@ extern "C"
         return impl->circuit_size;
     }
 
-    bb_error_t bb_init_crs(const char *path, int allow_download)
-    {
-        clear_last_error();
-
-        try
-        {
-            std::string crs_path;
-            if (path != nullptr && path[0] != '\0')
-            {
-                crs_path = std::string(path);
-            }
-            else
-            {
-                const char *env = std::getenv("BB_CRS_PATH");
-                crs_path = env ? std::string(env) : bb::srs::bb_crs_path().string();
-            }
-
-            if (allow_download)
-            {
-                bb::srs::init_net_crs_factory(crs_path);
-            }
-            else
-            {
-                bb::srs::init_file_crs_factory(crs_path);
-            }
-
-            g_crs_initialized.store(true, std::memory_order_release);
-            return BB_SUCCESS;
-        }
-        catch (const std::exception &e)
-        {
-            std::ostringstream oss;
-            oss << "CRS initialisation failed: " << e.what();
-            set_last_error(oss.str());
-            return BB_ERR_CRS_NOT_INITIALIZED;
-        }
-        catch (...)
-        {
-            set_last_error("unknown error during CRS initialisation");
-            return BB_ERR_CRS_NOT_INITIALIZED;
-        }
-    }
-
-    int bb_crs_is_initialized(void)
-    {
-        return g_crs_initialized.load(std::memory_order_acquire) ? 1 : 0;
-    }
-
     bb_error_t bb_verify_proof(
         const bb_vkey_t *vkey,
         const uint8_t *proof, size_t proof_len,
@@ -211,13 +156,6 @@ extern "C"
         size_t num_inputs)
     {
         clear_last_error();
-
-        // Require CRS to be initialised before verification
-        if (!g_crs_initialized.load(std::memory_order_acquire))
-        {
-            set_last_error("CRS not initialised: call bb_init_crs() before verification");
-            return BB_ERR_CRS_NOT_INITIALIZED;
-        }
 
         // Validate inputs
         if (vkey == nullptr)
@@ -255,6 +193,23 @@ extern "C"
         try
         {
             auto *impl = reinterpret_cast<const bb_vkey_impl *>(vkey);
+
+            // Initialise the CRS factory (reads from BB_CRS_PATH env var or ~/.bb-crs).
+            // Validators: set BB_CRS_PATH to a pre-populated directory.
+            // If the path is absent or CRS files are missing, verification will throw below.
+            try
+            {
+                const char *crs_path_env = std::getenv("BB_CRS_PATH");
+                std::string crs_path = crs_path_env ? std::string(crs_path_env) : bb::srs::bb_crs_path().string();
+                bb::srs::init_net_crs_factory(crs_path);
+            }
+            catch (const std::exception &e)
+            {
+                std::ostringstream oss;
+                oss << "CRS initialisation failed (set BB_CRS_PATH or populate ~/.bb-crs): " << e.what();
+                set_last_error(oss.str());
+                return BB_ERR_INTERNAL;
+            }
 
             // Deserialize VK fresh from bytes — mirrors BB CLI _verify() exactly
             auto vk = std::make_shared<VerificationKey>(

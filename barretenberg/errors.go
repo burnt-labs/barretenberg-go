@@ -13,7 +13,6 @@ const (
 	errCodeNullPointer           = 6
 	errCodeAllocationFailed      = 7
 	errCodeDeserializationFailed = 8
-	errCodeCRSNotInitialized     = 9
 )
 
 // Sentinel errors for Barretenberg operations
@@ -45,10 +44,6 @@ var (
 	// ErrDeserializationFailed indicates deserialization of data failed.
 	ErrDeserializationFailed = errors.New("barretenberg: deserialization failed")
 
-	// ErrCRSNotInitialized indicates the CRS has not been initialized.
-	// Call InitCRS before performing proof verification.
-	ErrCRSNotInitialized = errors.New("barretenberg: CRS not initialized")
-
 	// ErrClosed indicates an operation was attempted on a closed resource.
 	ErrClosed = errors.New("barretenberg: resource is closed")
 
@@ -77,8 +72,6 @@ func errorFromCode(code int, detail string) error {
 		baseErr = ErrAllocationFailed
 	case errCodeDeserializationFailed:
 		baseErr = ErrDeserializationFailed
-	case errCodeCRSNotInitialized:
-		baseErr = ErrCRSNotInitialized
 	default:
 		baseErr = ErrInternal
 	}

@@ -17,11 +17,6 @@
 //
 // Basic proof verification:
 //
-//	// Initialise CRS once at application startup (downloads from Aztec CDN if needed)
-//	if err := barretenberg.InitCRS("", true); err != nil {
-//	    return err
-//	}
-//
 //	// Parse verification key and proof
 //	vkey, err := barretenberg.ParseVerificationKey(vkeyBytes)
 //	if err != nil {
