@@ -2,16 +2,16 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-    inputs:
-      create_release:
-        description: 'Create a GitHub release after building'
-        required: false
-        default: 'false'
-        type: choice
-        options: ['true', 'false']
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+    branches:
+      - main
+    paths:
+      - 'wrapper/**'
+      - 'include/**'
+      - 'barretenberg/**'
+      - 'checksums.json'
+      - 'scripts/**'
+      - 'Makefile'
 
 permissions:
   contents: write
@@ -67,7 +67,7 @@ jobs:
           name: lib-${{ matrix.platform }}
           path: lib/${{ matrix.platform }}/libbarretenberg.a
 
-  commit-archives:
+  commit-and-release:
     needs: build
     runs-on: ubuntu-latest
 
@@ -75,6 +75,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -88,20 +89,97 @@ jobs:
             cp artifacts/lib-$platform/libbarretenberg.a lib/$platform/
           done
 
-      - name: Commit archives
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add lib/
-          git diff --staged --quiet || git commit -m "build: update pre-built archives for all platforms"
-          git push origin main
-
-      - name: Create release
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          gh release create ${{ github.ref_name }} \
-            --target main \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+      - name: Commit archives via API (verified signature)
+        id: commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: burnt-labs/barretenberg-go
+        run: |
+          # Check if any archives actually changed
+          git add lib/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            MAIN_SHA=$(gh api repos/$REPO/git/ref/heads/main --jq '.object.sha')
+            echo "sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git reset HEAD -- .
+
+          # Get current main HEAD
+          MAIN_SHA=$(gh api repos/$REPO/git/ref/heads/main --jq '.object.sha')
+          BASE_TREE=$(gh api repos/$REPO/git/commits/$MAIN_SHA --jq '.tree.sha')
+
+          # Upload each archive as a blob and build tree entries
+          TREE_ENTRIES="["
+          FIRST=true
+          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            FILE="lib/$platform/libbarretenberg.a"
+            if [ ! -f "$FILE" ]; then
+              echo "Skipping $FILE (not found)"
+              continue
+            fi
+            echo "Uploading blob for $FILE..."
+            BLOB_SHA=$(base64 -w 0 "$FILE" | jq -Rs '{content: ., encoding: "base64"}' | \
+              gh api repos/$REPO/git/blobs --input - --jq '.sha')
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              TREE_ENTRIES+=","
+            fi
+            TREE_ENTRIES+="{\"path\":\"$FILE\",\"mode\":\"100644\",\"type\":\"blob\",\"sha\":\"$BLOB_SHA\"}"
+          done
+          TREE_ENTRIES+="]"
+
+          # Create tree
+          TREE_SHA=$(jq -n --arg base "$BASE_TREE" --argjson tree "$TREE_ENTRIES" \
+            '{base_tree: $base, tree: $tree}' | \
+            gh api repos/$REPO/git/trees --input - --jq '.sha')
+
+          # Create commit (GitHub signs this automatically)
+          COMMIT_SHA=$(jq -n \
+            --arg msg "build: update pre-built archives for all platforms" \
+            --arg tree "$TREE_SHA" \
+            --argjson parents "[\"$MAIN_SHA\"]" \
+            '{message: $msg, tree: $tree, parents: $parents}' | \
+            gh api repos/$REPO/git/commits --input - --jq '.sha')
+
+          # Update main ref
+          gh api repos/$REPO/git/refs/heads/main \
+            -X PATCH \
+            -f sha="$COMMIT_SHA" \
+            -F force=false
+
+          echo "Committed $COMMIT_SHA to main (verified signature)"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Determine next version
+        id: semver
+        uses: go-semantic-release/action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          allow-initial-development-versions: true
+          force-bump-patch-version: true
+          dry: true
+
+      - name: Tag and release
+        if: steps.semver.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: burnt-labs/barretenberg-go
+          VERSION: v${{ steps.semver.outputs.version }}
+          TARGET_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          # Create tag pointing to the commit with built archives
+          gh api repos/$REPO/git/refs \
+            -f ref="refs/tags/$VERSION" \
+            -f sha="$TARGET_SHA"
+
+          echo "Tagged $TARGET_SHA as $VERSION"
+
+          # Create release with changelog
+          gh release create "$VERSION" \
+            --target "$TARGET_SHA" \
+            --title "$VERSION" \
+            --generate-notes
