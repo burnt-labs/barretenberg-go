@@ -1,7 +1,7 @@
 package barretenberg
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/include
+#cgo CFLAGS: -I${SRCDIR}/../include
 #include "barretenberg_wrapper.h"
 #include <stdlib.h>
 */
