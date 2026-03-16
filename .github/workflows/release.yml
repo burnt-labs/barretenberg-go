@@ -90,6 +90,12 @@ jobs:
           done
           ls -lh release-assets/
 
+      - name: Generate checksums
+        run: |
+          cd release-assets
+          sha256sum *.a > checksums.txt
+          cat checksums.txt
+
       - name: Determine next version
         id: semver
         uses: go-semantic-release/action@v1
