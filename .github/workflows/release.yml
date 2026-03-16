@@ -30,7 +30,7 @@ jobs:
             aztec_arch: arm64
             aztec_os: linux
           - platform: darwin_amd64
-            runner: macos-13
+            runner: macos-14
             aztec_arch: amd64
             aztec_os: darwin
           - platform: darwin_arm64
