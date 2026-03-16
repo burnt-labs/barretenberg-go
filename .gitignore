@@ -5,6 +5,9 @@
 # Pre-built static archives (downloaded from GitHub Releases at build time)
 lib/
 
+# Design docs (local only)
+docs/
+
 # IDE
 .idea/
 .vscode/

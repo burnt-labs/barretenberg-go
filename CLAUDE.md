@@ -63,6 +63,15 @@ This wraps Aztec's barretenberg library from [aztec-packages](https://github.com
 4. Run tests
 5. Push to main (CI will create a release with the new archives)
 
+## CRS (Common Reference String)
+
+Proof verification requires BN254 SRS (Structured Reference String) data. The C++ wrapper calls `bb::srs::init_net_crs_factory()` inside `bb_verify_proof`, which sets up a factory that fetches SRS points from the Aztec CDN (`crs.aztec-cdn.foundation`) via HTTP range requests on demand.
+
+- **Storage path** — Controlled by `BB_CRS_PATH` env var, falls back to `~/.bb-crs`. Only a 64-byte seed file (`bn254_g1.dat`) is written to disk; actual SRS points are fetched into memory.
+- **Download size** — Depends on circuit size. Larger circuits need more SRS points. The download happens on the first verification after process start (~0.4s for the test circuit).
+- **No pre-init needed** — The factory is initialized per-call inside `bb_verify_proof`. There is no separate `InitCRS` step required.
+- **Validator considerations** — For validators, the network fetch adds latency only on the first verification after process start. Subsequent verifications reuse in-memory SRS data. Set `BB_CRS_PATH` to a persistent directory to cache the seed file across restarts.
+
 ## Consumer
 
 Primary consumer is [xion](https://github.com/burnt-labs/xion) (`x/zk/` module) which imports this package for on-chain UltraHonk proof verification.
