@@ -2,6 +2,9 @@
 *.o
 *.a.tmp
 
+# Pre-built static archives (downloaded from GitHub Releases at build time)
+lib/
+
 # IDE
 .idea/
 .vscode/

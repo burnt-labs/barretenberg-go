@@ -11,14 +11,13 @@ barretenberg/          Go package (import "github.com/burnt-labs/barretenberg-go
   vkey.go              VerificationKey type
   proof.go             Proof and PublicInputs types
   errors.go            Sentinel errors
-  crs.go               Common Reference String (CRS/SRS) initialization
   link_*.go            Platform-specific CGo linker flags
   doc.go               Package documentation
   *_test.go            Tests
   testdata/statics/    Binary test vectors (vk, proof, public_inputs)
 wrapper/               C++ wrapper shim (barretenberg_wrapper.cpp)
 include/               C header (barretenberg_wrapper.h)
-lib/<platform>/        Pre-built static archives (committed, not LFS)
+lib/<platform>/        Static archives (gitignored; built locally or downloaded from GitHub Releases)
 scripts/               Build script (build-wrapper.sh)
 checksums.json         Aztec release version, SHA256 checksums
 ```
@@ -36,7 +35,7 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 
 ## Key conventions
 
-- **No Git LFS** — Go module proxy can't resolve LFS pointers. Archives are committed directly (stripped to stay under GitHub's 100MB limit).
+- **Release assets** — Pre-built static archives are uploaded as GitHub Release assets, not committed to the repo. Consumers download the right platform archive at build time. Run `make build` for local development.
 - **CGo paths** — `${SRCDIR}` in link files resolves to `barretenberg/`, so paths to `lib/` and `include/` use `../` prefix.
 - **Platform-specific C++ stdlib** — linux_amd64 links `libstdc++` (matching Aztec's build), all others link `libc++`. This is set in both the link_*.go files and build-wrapper.sh.
 - **Debug symbol stripping** — Build script strips debug symbols to reduce archive size (~544MB → ~48MB on darwin).
@@ -44,7 +43,9 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 
 ## CI
 
-`.github/workflows/release.yml` builds all 4 platforms on push of a semver tag (`v*.*.*`). The `commit-archives` job commits built archives to main. Note: `burnt-labs` org requires signed commits, so the CI bot commit step may fail — download artifacts and commit locally if needed.
+`.github/workflows/release.yml` builds all 4 platforms on push to main (when source files change) or on workflow_dispatch. The `release` job uses `go-semantic-release` to determine the next semver from conventional commit messages, creates a GitHub Release, and uploads the 4 `libbarretenberg_<platform>.a` archives as release assets.
+
+Conventional commit prefixes: `feat:` = minor bump, `fix:` = patch bump, `feat!:` or `BREAKING CHANGE:` = major bump.
 
 ## Testing
 
@@ -60,7 +61,7 @@ This wraps Aztec's barretenberg library from [aztec-packages](https://github.com
 2. Update SHA256 checksums for all 4 platform tarballs
 3. Rebuild: `make build-all`
 4. Run tests
-5. Tag a new semver release
+5. Push to main (CI will create a release with the new archives)
 
 ## Consumer
 
