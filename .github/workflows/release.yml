@@ -1,0 +1,104 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub release after building'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: linux_amd64
+            runner: ubuntu-latest
+            aztec_arch: amd64
+            aztec_os: linux
+          - platform: linux_arm64
+            runner: ubuntu-24.04-arm
+            aztec_arch: arm64
+            aztec_os: linux
+          - platform: darwin_amd64
+            runner: macos-13
+            aztec_arch: amd64
+            aztec_os: darwin
+          - platform: darwin_arm64
+            runner: macos-latest
+            aztec_arch: arm64
+            aztec_os: darwin
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install libc++ (Linux arm64)
+        if: matrix.platform == 'linux_arm64'
+        run: sudo apt-get update && sudo apt-get install -y libc++-dev libc++abi-dev
+
+      - name: Build wrapper
+        run: ./scripts/build-wrapper.sh --platform ${{ matrix.platform }}
+
+      - name: Run tests
+        run: go test -v -count=1 ./...
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-${{ matrix.platform }}
+          path: lib/${{ matrix.platform }}/libbarretenberg.a
+
+  commit-archives:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Place archives
+        run: |
+          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            mkdir -p lib/$platform
+            cp artifacts/lib-$platform/libbarretenberg.a lib/$platform/
+          done
+
+      - name: Commit archives
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/
+          git diff --staged --quiet || git commit -m "build: update pre-built archives for all platforms"
+          git push origin main
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --target main \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
