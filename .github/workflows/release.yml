@@ -33,10 +33,12 @@ jobs:
             runner: macos-14
             aztec_arch: amd64
             aztec_os: darwin
+            cross_compile: true
           - platform: darwin_arm64
             runner: macos-latest
             aztec_arch: arm64
             aztec_os: darwin
+            cross_compile: false
 
     runs-on: ${{ matrix.runner }}
 
@@ -56,6 +58,7 @@ jobs:
         run: ./scripts/build-wrapper.sh --platform ${{ matrix.platform }}
 
       - name: Run tests
+        if: matrix.cross_compile != true
         run: go test -v -count=1 ./...
 
       - name: Upload artifact
