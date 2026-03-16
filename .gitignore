@@ -2,10 +2,24 @@
 *.o
 *.a.tmp
 
-# IDE
+# IDE / Editor
 .idea/
 .vscode/
 *.swp
+*~
+\#*\#
+.#*
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Go
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Build script temp files
+/tmp/
+*.tar.gz

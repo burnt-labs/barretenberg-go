@@ -25,7 +25,8 @@ typedef enum {
     BB_ERR_INTERNAL = 5,
     BB_ERR_NULL_POINTER = 6,
     BB_ERR_ALLOCATION_FAILED = 7,
-    BB_ERR_DESERIALIZATION_FAILED = 8
+    BB_ERR_DESERIALIZATION_FAILED = 8,
+    BB_ERR_CRS_NOT_INITIALIZED = 9
 } bb_error_t;
 
 /* Opaque handle to a verification key */
@@ -118,6 +119,26 @@ const char* bb_version(void);
  * @return          1 if UltraHonk is supported, 0 otherwise
  */
 int bb_supports_ultrahonk(void);
+
+/*
+ * Initialise the Common Reference String (CRS) required for proof verification.
+ * Must be called once before any bb_verify_proof calls.
+ *
+ * @param path            Directory for CRS files. NULL or empty string uses
+ *                        BB_CRS_PATH env var, then ~/.bb-crs.
+ * @param allow_download  If non-zero, missing CRS data will be downloaded
+ *                        from the Aztec CDN on first use. If zero, CRS files
+ *                        must already exist at the given path.
+ * @return                BB_SUCCESS on success, BB_ERR_CRS_NOT_INITIALIZED on failure
+ */
+bb_error_t bb_init_crs(const char* path, int allow_download);
+
+/*
+ * Check whether the CRS has been initialised.
+ *
+ * @return  1 if initialised, 0 otherwise
+ */
+int bb_crs_is_initialized(void);
 
 #ifdef __cplusplus
 }
