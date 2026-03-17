@@ -37,7 +37,7 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 
 - **Release assets** — Pre-built static archives are uploaded as GitHub Release assets, not committed to the repo. Consumers download the right platform archive at build time. Run `make build` for local development.
 - **CGo paths** — `${SRCDIR}` in link files resolves to `barretenberg/`, so paths to `lib/` and `include/` use `../` prefix.
-- **Platform-specific C++ stdlib** — linux_amd64 links `libstdc++` (matching Aztec's build), all others link `libc++`. This is set in both the link_*.go files and build-wrapper.sh.
+- **Platform-specific C++ stdlib** — All platforms link `libc++`. This is set in both the link_*.go files and build-wrapper.sh.
 - **Debug symbol stripping** — Build script strips debug symbols to reduce archive size (~544MB → ~48MB on darwin).
 - **Checksums** — All downloads are SHA256-verified against checksums.json. Update this file when bumping the Aztec version.
 

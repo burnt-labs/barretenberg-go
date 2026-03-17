@@ -61,9 +61,9 @@ case "$PLATFORM" in
     linux_amd64)
         AZTEC_ARCH="amd64"
         AZTEC_OS="linux"
-        EXTRA_LDFLAGS="-lstdc++ -lm -lpthread"
+        EXTRA_LDFLAGS="-lc++ -lm -lpthread"
         LINUX_CROSS_TARGET="--target=x86_64-linux-gnu"
-        LINUX_STDLIB=""   # use compiler default (libstdc++) — matches Aztec's amd64 build
+        LINUX_STDLIB="-stdlib=libc++"   # match clang++ default — Aztec's amd64 build uses libc++
         ;;
     linux_arm64)
         AZTEC_ARCH="arm64"
