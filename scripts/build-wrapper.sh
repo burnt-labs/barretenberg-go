@@ -199,14 +199,15 @@ echo ""
 echo "▶ Step 3: Compiling barretenberg_wrapper.cpp..."
 WRAPPER_O="$WORK_DIR/barretenberg_wrapper.o"
 
-# On macOS, C++ stdlib headers may live inside the SDK rather than in the
-# CommandLineTools usr/include. Detect the SDK path and add it explicitly.
-SDK_CXX_INCLUDE=""
+# On macOS, detect the SDK path and use -isysroot so clang can find both
+# C standard headers (stddef.h, stdlib.h, etc.) and C++ headers when
+# cross-compiling (e.g., x86_64 on an arm64 runner).
+SDK_FLAGS=()
 if [[ "$AZTEC_OS" == "darwin" ]]; then
     SDK_PATH="$(xcrun --show-sdk-path 2>/dev/null || true)"
-    if [[ -n "$SDK_PATH" && -d "$SDK_PATH/usr/include/c++/v1" ]]; then
-        SDK_CXX_INCLUDE="-I$SDK_PATH/usr/include/c++/v1"
-        echo "  Using SDK C++ headers: $SDK_PATH/usr/include/c++/v1"
+    if [[ -n "$SDK_PATH" ]]; then
+        SDK_FLAGS=(-isysroot "$SDK_PATH")
+        echo "  Using SDK: $SDK_PATH"
     fi
 fi
 
@@ -216,7 +217,7 @@ CLANG_FLAGS=(
     -O2
     -fvisibility=hidden
     -fvisibility-inlines-hidden
-    ${SDK_CXX_INCLUDE:+"$SDK_CXX_INCLUDE"}
+    "${SDK_FLAGS[@]}"
     -I "$MSGPACK_DIR/include"
     -I "${STUBS_DIR}"
     -I "$HEADERS_DIR/barretenberg/cpp/src"
