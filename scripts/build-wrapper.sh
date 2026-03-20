@@ -76,7 +76,7 @@ case "$PLATFORM" in
         AZTEC_ARCH="amd64"
         AZTEC_OS="darwin"
         EXTRA_LDFLAGS="-lc++ -lm"
-        DARWIN_TARGET="-target x86_64-apple-macos10.15"
+        DARWIN_TARGET="-target x86_64-apple-macos11.0"
         ;;
     darwin_arm64)
         AZTEC_ARCH="arm64"
