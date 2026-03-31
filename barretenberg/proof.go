@@ -47,16 +47,25 @@ func ParseProofHex(hexStr string) (*Proof, error) {
 // Bytes returns the raw proof bytes.
 // The returned slice should not be modified.
 func (p *Proof) Bytes() []byte {
+	if p == nil {
+		return nil
+	}
 	return p.raw
 }
 
 // Hex returns the proof as a hex-encoded string.
 func (p *Proof) Hex() string {
+	if p == nil {
+		return ""
+	}
 	return hex.EncodeToString(p.raw)
 }
 
 // Size returns the size of the proof in bytes.
 func (p *Proof) Size() int {
+	if p == nil {
+		return 0
+	}
 	return len(p.raw)
 }
 
@@ -125,13 +134,16 @@ func ParsePublicInputsFromHex(hexInputs []string) (*PublicInputs, error) {
 
 // Count returns the number of public inputs.
 func (pi *PublicInputs) Count() int {
+	if pi == nil {
+		return 0
+	}
 	return len(pi.values)
 }
 
 // Bytes returns all public inputs concatenated as a single byte slice.
 // Each field element is 32 bytes, so the total length is Count() * 32.
 func (pi *PublicInputs) Bytes() []byte {
-	if len(pi.values) == 0 {
+	if pi == nil || len(pi.values) == 0 {
 		return nil
 	}
 
@@ -144,6 +156,9 @@ func (pi *PublicInputs) Bytes() []byte {
 
 // Element returns the i-th public input as a byte slice.
 func (pi *PublicInputs) Element(i int) ([]byte, error) {
+	if pi == nil {
+		return nil, fmt.Errorf("%w: nil PublicInputs", ErrInvalidPublicInputs)
+	}
 	if i < 0 || i >= len(pi.values) {
 		return nil, fmt.Errorf("%w: index %d out of range [0, %d)", ErrInvalidPublicInputs, i, len(pi.values))
 	}
