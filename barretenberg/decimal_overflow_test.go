@@ -4,6 +4,7 @@
 package barretenberg
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -12,7 +13,7 @@ import (
 //
 // The old implementation used a uint64 accumulator; any value > 2^64 silently
 // wrapped. For example, 2^64+1 = 18446744073709551617 would have been stored as
-// 1 rather than the correct 257-bit big-endian encoding.
+// 1 rather than the correct 65-bit value in 32-byte big-endian encoding.
 func TestParseDecimalFieldElementLargeValue(t *testing.T) {
 	// 2^64 + 1 = 18446744073709551617
 	// In 32-byte big-endian:  bytes[23]=0x01, bytes[24-30]=0x00, bytes[31]=0x01
@@ -136,7 +137,8 @@ func TestParseDecimalFieldElementInvalid(t *testing.T) {
 		{name: "negative", input: "-1"},
 		{name: "leading plus", input: "+42"},
 		{name: "overflow 33 bytes", input: "115792089237316195423570985008687907853269984665640564039457584007913129639936"}, // 2^256
-		{name: "too long 79 digits", input: "1000000000000000000000000000000000000000000000000000000000000000000000000000000"}, // 79 chars
+		{name: "too long 79 significant digits", input: "1000000000000000000000000000000000000000000000000000000000000000000000000000000"}, // 79 significant digits
+		{name: "too long absolute", input: strings.Repeat("0", 257)}, // 257 chars — exceeds absolute DoS cap (even though value is 0)
 	}
 
 	for _, tc := range tests {
@@ -146,5 +148,33 @@ func TestParseDecimalFieldElementInvalid(t *testing.T) {
 				t.Errorf("expected error for input %q, got nil", tc.input)
 			}
 		})
+	}
+}
+
+// TestParseDecimalFieldElementLeadingZeros verifies that inputs with leading zeros
+// are accepted and parse to the same value as without leading zeros.
+func TestParseDecimalFieldElementLeadingZeros(t *testing.T) {
+	// "007" should parse identically to "7"
+	pi1, err := ParsePublicInputsFromStrings([]string{"007"})
+	if err != nil {
+		t.Fatalf("unexpected error for leading-zero input: %v", err)
+	}
+	pi2, err := ParsePublicInputsFromStrings([]string{"7"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	b1 := pi1.Bytes()
+	b2 := pi2.Bytes()
+	for i := range b1 {
+		if b1[i] != b2[i] {
+			t.Errorf("bytes[%d]: leading-zero input = 0x%02x, canonical = 0x%02x", i, b1[i], b2[i])
+		}
+	}
+
+	// 78 leading zeros + "1" = 79 chars total but only 1 significant digit — must be accepted
+	padded := strings.Repeat("0", 78) + "1"
+	_, err = ParsePublicInputsFromStrings([]string{padded})
+	if err != nil {
+		t.Errorf("unexpected error for 78-leading-zero input (79 chars, 1 significant digit): %v", err)
 	}
 }

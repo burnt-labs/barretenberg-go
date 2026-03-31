@@ -192,18 +192,28 @@ func parseHexFieldElement(hexStr string) ([]byte, error) {
 
 // parseDecimalFieldElement parses a decimal string as a big-endian 32-byte field element.
 // Only ASCII digit characters (0-9) are accepted; leading '+' or '-' are rejected.
-// The input is bounded to maxDecimalDigits to prevent resource exhaustion on user-controlled input.
+// Leading zeros are allowed (e.g. "007" == "7"). The input is bounded to prevent
+// resource exhaustion on user-controlled input before any big.Int allocation.
 func parseDecimalFieldElement(s string) ([]byte, error) {
-	// BN254 scalar field max (2^254) fits in 77 decimal digits; cap at 78 to
-	// reject obviously oversized inputs before any big.Int allocation.
-	const maxDecimalDigits = 78
-	if len(s) > maxDecimalDigits {
-		return nil, fmt.Errorf("%w: decimal string too long (%d chars, max %d)", ErrInvalidFieldElement, len(s), maxDecimalDigits)
+	// Absolute DoS cap: reject strings longer than 256 chars before allocating.
+	// This is generous enough to accommodate any number of leading zeros while
+	// still bounding allocations on malicious inputs.
+	const maxRawLen = 256
+	if len(s) > maxRawLen {
+		return nil, fmt.Errorf("%w: decimal string too long (%d chars, max %d)", ErrInvalidFieldElement, len(s), maxRawLen)
 	}
 	for _, c := range s {
 		if c < '0' || c > '9' {
 			return nil, fmt.Errorf("%w: invalid character %q in decimal string", ErrInvalidFieldElement, c)
 		}
+	}
+	// Count significant digits (strip leading zeros) to enforce field-size bound
+	// before big.Int allocation.
+	sig := strings.TrimLeft(s, "0")
+	// BN254 scalar field max (2^254) fits in 77 significant decimal digits.
+	const maxSignificantDigits = 78
+	if len(sig) > maxSignificantDigits {
+		return nil, fmt.Errorf("%w: decimal value too large (%d significant digits, max %d)", ErrInvalidFieldElement, len(sig), maxSignificantDigits)
 	}
 	n, ok := new(big.Int).SetString(s, 10)
 	if !ok {
