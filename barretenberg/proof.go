@@ -55,6 +55,15 @@ func (p *Proof) Bytes() []byte {
 	return result
 }
 
+// rawBytes returns the internal proof bytes without copying.
+// For use only within the barretenberg package — callers must not modify the slice.
+func (p *Proof) rawBytes() []byte {
+	if p == nil {
+		return nil
+	}
+	return p.raw
+}
+
 // Hex returns the proof as a hex-encoded string.
 func (p *Proof) Hex() string {
 	if p == nil {
@@ -149,6 +158,19 @@ func (pi *PublicInputs) Bytes() []byte {
 		return nil
 	}
 
+	result := make([]byte, 0, len(pi.values)*FieldElementSize)
+	for _, v := range pi.values {
+		result = append(result, v...)
+	}
+	return result
+}
+
+// rawBytes returns all public inputs concatenated without an intermediate copy.
+// For use only within the barretenberg package — callers must not modify the slice.
+func (pi *PublicInputs) rawBytes() []byte {
+	if pi == nil || len(pi.values) == 0 {
+		return nil
+	}
 	result := make([]byte, 0, len(pi.values)*FieldElementSize)
 	for _, v := range pi.values {
 		result = append(result, v...)
