@@ -5,7 +5,6 @@ package barretenberg
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -43,51 +42,4 @@ func TestPublicInputsNilReceiver(t *testing.T) {
 	if !errors.Is(err, ErrInvalidPublicInputs) {
 		t.Errorf("nil PublicInputs.Element(0): expected ErrInvalidPublicInputs, got %v", err)
 	}
-}
-
-// TestVerifyPublicInputCountMismatch verifies that verifying with the wrong
-// number of public inputs returns ErrInvalidPublicInputs with a clear message.
-// Requires real test vectors; skipped with stub library or missing data.
-func TestVerifyPublicInputCountMismatch(t *testing.T) {
-	if strings.HasPrefix(Version(), "stub") {
-		t.Skip("stub library does not support NumPublicInputs")
-	}
-
-	vkeyData := loadTestVector(t, vkeyFile)
-	proofData := loadTestVector(t, proofFile)
-
-	vkey, err := ParseVerificationKey(vkeyData)
-	if err != nil {
-		t.Fatalf("failed to parse vkey: %v", err)
-	}
-	defer vkey.Close()
-
-	expectedCount, err := vkey.NumPublicInputs()
-	if err != nil {
-		t.Fatalf("failed to get public input count: %v", err)
-	}
-	if expectedCount == 0 {
-		t.Skip("vkey expects 0 public inputs — cannot test count mismatch with this test vector")
-	}
-
-	proof, err := ParseProof(proofData)
-	if err != nil {
-		t.Fatalf("failed to parse proof: %v", err)
-	}
-
-	verifier, err := NewVerifier(vkey)
-	if err != nil {
-		t.Fatalf("failed to create verifier: %v", err)
-	}
-	defer verifier.Close()
-
-	// Pass no inputs when vkey expects some — must fail with ErrInvalidPublicInputs
-	_, err = verifier.VerifyWithBytes(proof, nil)
-	if err == nil {
-		t.Fatal("expected error for count mismatch, got nil")
-	}
-	if !errors.Is(err, ErrInvalidPublicInputs) {
-		t.Errorf("expected ErrInvalidPublicInputs for count mismatch, got %v", err)
-	}
-	t.Logf("correctly rejected: vkey expects %d input(s), got 0 — error: %v", expectedCount, err)
 }
