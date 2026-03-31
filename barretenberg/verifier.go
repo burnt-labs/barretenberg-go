@@ -157,10 +157,11 @@ func (v *Verifier) verifyWithInputs(proof *Proof, publicInputs *PublicInputs) (b
 	// }
 
 	// Wrap the CGo verification call with panic recovery.
-	// A panic in the C++ layer propagates as a Go panic through CGo; while a
-	// true SIGSEGV cannot be caught here, Go-level panics from the CGo wrapper
-	// (e.g. nil-dereference, bounds check) are recoverable and must not crash
-	// the process.
+	// Note: C++ exceptions do NOT propagate as Go panics through CGo — they are
+	// caught by the C++ wrapper and returned as Go errors. A true C++ abort or
+	// SIGSEGV from the underlying library is also not recoverable here (it
+	// terminates the process). This recover() only catches Go-level panics raised
+	// by the CGo wrapper itself (e.g. nil-dereference, bounds check).
 	var (
 		verified bool
 		callErr  error
@@ -244,3 +245,4 @@ func VerifyProofBytes(vkeyData, proofData []byte, publicInputs []string) (bool, 
 
 	return verifier.Verify(proof, publicInputs)
 }
+
