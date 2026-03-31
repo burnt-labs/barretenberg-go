@@ -165,17 +165,12 @@ func (pi *PublicInputs) Bytes() []byte {
 	return result
 }
 
-// rawBytes returns all public inputs concatenated without an intermediate copy.
-// For use only within the barretenberg package — callers must not modify the slice.
+// rawBytes returns all public inputs concatenated as a single byte slice.
+// Unlike Proof.rawBytes(), this still allocates a new buffer (the values are stored
+// as separate slices and must be concatenated). It exists only to signal internal-use
+// intent; behaviour is identical to Bytes().
 func (pi *PublicInputs) rawBytes() []byte {
-	if pi == nil || len(pi.values) == 0 {
-		return nil
-	}
-	result := make([]byte, 0, len(pi.values)*FieldElementSize)
-	for _, v := range pi.values {
-		result = append(result, v...)
-	}
-	return result
+	return pi.Bytes()
 }
 
 // Element returns the i-th public input as a byte slice.
