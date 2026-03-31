@@ -44,13 +44,15 @@ func ParseProofHex(hexStr string) (*Proof, error) {
 	return ParseProof(data)
 }
 
-// Bytes returns the raw proof bytes.
-// The returned slice should not be modified.
+// Bytes returns a copy of the raw proof bytes.
+// The returned slice is safe to modify; it does not alias internal state.
 func (p *Proof) Bytes() []byte {
-	if p == nil {
+	if p == nil || len(p.raw) == 0 {
 		return nil
 	}
-	return p.raw
+	result := make([]byte, len(p.raw))
+	copy(result, p.raw)
+	return result
 }
 
 // Hex returns the proof as a hex-encoded string.
