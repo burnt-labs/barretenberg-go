@@ -136,7 +136,7 @@ func TestParseDecimalFieldElementInvalid(t *testing.T) {
 		{name: "negative", input: "-1"},
 		{name: "leading plus", input: "+42"},
 		{name: "overflow 33 bytes", input: "115792089237316195423570985008687907853269984665640564039457584007913129639936"}, // 2^256
-		{name: "too long 79 digits", input: "100000000000000000000000000000000000000000000000000000000000000000000000000000"}, // 79 chars
+		{name: "too long 79 digits", input: "1000000000000000000000000000000000000000000000000000000000000000000000000000000"}, // 79 chars
 	}
 
 	for _, tc := range tests {
