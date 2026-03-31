@@ -79,8 +79,8 @@ func TestParseHexFieldElementShortString(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
-		wantByte  byte   // expected value of the last byte
-		wantIndex int    // byte index of the expected non-zero value
+		wantByte  byte // expected value of the last byte
+		wantIndex int  // byte index of the expected non-zero value
 	}{
 		{
 			name:      "single byte 0x2a",
@@ -134,7 +134,9 @@ func TestParseDecimalFieldElementInvalid(t *testing.T) {
 		{name: "empty", input: ""},
 		{name: "non-digit", input: "12a34"},
 		{name: "negative", input: "-1"},
+		{name: "leading plus", input: "+42"},
 		{name: "overflow 33 bytes", input: "115792089237316195423570985008687907853269984665640564039457584007913129639936"}, // 2^256
+		{name: "too long 79 digits", input: "100000000000000000000000000000000000000000000000000000000000000000000000000000"}, // 79 chars
 	}
 
 	for _, tc := range tests {
