@@ -167,7 +167,7 @@ func (v *Verifier) verifyWithInputs(proof *Proof, publicInputs *PublicInputs) (b
 		}()
 
 		verifyErr := v.vkey.handle.verifyProof(
-			proof.Bytes(),
+			proof.rawBytes(),
 			publicInputs.Bytes(),
 			publicInputs.Count(),
 		)
