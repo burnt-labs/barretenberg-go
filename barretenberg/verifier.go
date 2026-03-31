@@ -147,14 +147,14 @@ func (v *Verifier) verifyWithInputs(proof *Proof, publicInputs *PublicInputs) (b
 	// Cross-check public input count against what the vkey declares.
 	// This surfaces version mismatches (e.g. vkey generated with a different bb version)
 	// with a clear error instead of an opaque barretenberg exception.
-	_, err := v.vkey.NumPublicInputs()
+	expectedCount, err := v.vkey.NumPublicInputs()
 	if err != nil {
 		return false, fmt.Errorf("failed to read vkey public input count: %w", err)
 	}
-	// if publicInputs.Count() != expectedCount {
-	// 	return false, fmt.Errorf("%w: vkey expects %d public input(s), got %d — ensure bb version matches compiled library",
-	// 		ErrInvalidPublicInputs, expectedCount, publicInputs.Count())
-	// }
+	if publicInputs.Count() != expectedCount {
+		return false, fmt.Errorf("%w: vkey expects %d public input(s), got %d — ensure bb version matches compiled library",
+			ErrInvalidPublicInputs, expectedCount, publicInputs.Count())
+	}
 
 	// Wrap the CGo verification call with panic recovery.
 	// Note: C++ exceptions do NOT propagate as Go panics through CGo — they are
