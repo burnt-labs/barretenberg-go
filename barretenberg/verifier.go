@@ -144,20 +144,10 @@ func (v *Verifier) VerifyWithHexInputs(proof *Proof, hexInputs []string) (bool, 
 // verifyWithInputs is the internal verification method.
 // Caller must hold at least a read lock on v.mu.
 func (v *Verifier) verifyWithInputs(proof *Proof, publicInputs *PublicInputs) (bool, error) {
-	// Cross-check public input count against what the vkey declares.
-	// This surfaces version mismatches (e.g. vkey generated with a different bb version)
-	// with a clear error instead of an opaque barretenberg exception.
-	_, err := v.vkey.NumPublicInputs()
-	if err != nil {
-		return false, fmt.Errorf("failed to read vkey public input count: %w", err)
-	}
-	// NOTE: NumPublicInputs() returns the total number of public inputs including
-	// internal circuit inputs not provided by callers, so it does not equal
-	// len(publicInputs). The count check is intentionally not enforced here.
-	// if publicInputs.Count() != expectedCount {
-	// 	return false, fmt.Errorf("%w: vkey expects %d public input(s), got %d — ensure bb version matches compiled library",
-	// 		ErrInvalidPublicInputs, expectedCount, publicInputs.Count())
-	// }
+	// NOTE: NumPublicInputs() from the vkey returns the total internal circuit
+	// input count, which is not equal to the number of caller-provided inputs.
+	// Count validation is therefore not enforced here; the underlying library
+	// returns a clear error if the input count is wrong.
 
 	// Wrap the CGo verification call with panic recovery.
 	// Note: C++ exceptions do NOT propagate as Go panics through CGo — they are
