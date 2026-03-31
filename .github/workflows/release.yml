@@ -22,11 +22,11 @@ jobs:
       matrix:
         include:
           - platform: linux_amd64
-            runner: ubuntu-latest
+            runner: depot-ubuntu-24.04-4
             aztec_arch: amd64
             aztec_os: linux
           - platform: linux_arm64
-            runner: ubuntu-24.04-arm
+            runner: depot-ubuntu-24.04-arm-4
             aztec_arch: arm64
             aztec_os: linux
           - platform: darwin_amd64
