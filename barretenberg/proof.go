@@ -191,10 +191,22 @@ func parseHexFieldElement(hexStr string) ([]byte, error) {
 }
 
 // parseDecimalFieldElement parses a decimal string as a big-endian 32-byte field element.
-// It uses math/big to handle values up to 256 bits without overflow.
+// Only ASCII digit characters (0-9) are accepted; leading '+' or '-' are rejected.
+// The input is bounded to maxDecimalDigits to prevent resource exhaustion on user-controlled input.
 func parseDecimalFieldElement(s string) ([]byte, error) {
+	// BN254 scalar field max (2^254) fits in 77 decimal digits; cap at 78 to
+	// reject obviously oversized inputs before any big.Int allocation.
+	const maxDecimalDigits = 78
+	if len(s) > maxDecimalDigits {
+		return nil, fmt.Errorf("%w: decimal string too long (%d chars, max %d)", ErrInvalidFieldElement, len(s), maxDecimalDigits)
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return nil, fmt.Errorf("%w: invalid character %q in decimal string", ErrInvalidFieldElement, c)
+		}
+	}
 	n, ok := new(big.Int).SetString(s, 10)
-	if !ok || n.Sign() < 0 {
+	if !ok {
 		return nil, fmt.Errorf("%w: invalid decimal string: %q", ErrInvalidFieldElement, s)
 	}
 	b := n.Bytes()
