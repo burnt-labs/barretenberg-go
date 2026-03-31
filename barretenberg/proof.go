@@ -242,3 +242,4 @@ func parseDecimalFieldElement(s string) ([]byte, error) {
 	copy(value[32-len(b):], b)
 	return value[:], nil
 }
+
