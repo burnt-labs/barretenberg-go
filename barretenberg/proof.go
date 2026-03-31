@@ -3,6 +3,8 @@ package barretenberg
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strings"
 )
 
 // FieldElementSize is the size of a field element in bytes (256 bits = 32 bytes).
@@ -173,13 +175,7 @@ func parseHexFieldElement(hexStr string) ([]byte, error) {
 
 	// Pad to 64 characters (32 bytes) if shorter
 	if len(hexStr) < 64 {
-		hexStr = fmt.Sprintf("%064s", hexStr)
-		// Replace spaces with zeros (from the format padding)
-		for i := 0; i < len(hexStr); i++ {
-			if hexStr[i] == ' ' {
-				hexStr = hexStr[:i] + "0" + hexStr[i+1:]
-			}
-		}
+		hexStr = strings.Repeat("0", 64-len(hexStr)) + hexStr
 	}
 
 	if len(hexStr) > 64 {
@@ -194,26 +190,18 @@ func parseHexFieldElement(hexStr string) ([]byte, error) {
 	return data, nil
 }
 
-// parseDecimalFieldElement parses a decimal string as a field element.
+// parseDecimalFieldElement parses a decimal string as a big-endian 32-byte field element.
+// It uses math/big to handle values up to 256 bits without overflow.
 func parseDecimalFieldElement(s string) ([]byte, error) {
-	// Use big.Int for arbitrary precision
+	n, ok := new(big.Int).SetString(s, 10)
+	if !ok || n.Sign() < 0 {
+		return nil, fmt.Errorf("%w: invalid decimal string: %q", ErrInvalidFieldElement, s)
+	}
+	b := n.Bytes()
+	if len(b) > 32 {
+		return nil, fmt.Errorf("%w: value exceeds 32-byte field element", ErrInvalidFieldElement)
+	}
 	var value [32]byte
-
-	// Simple decimal parsing for numbers that fit in a field element
-	// This is a simplified implementation - for production, use big.Int
-	var n uint64
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return nil, fmt.Errorf("%w: invalid decimal character: %c", ErrInvalidFieldElement, c)
-		}
-		n = n*10 + uint64(c-'0')
-	}
-
-	// Convert to big-endian bytes
-	for i := 31; i >= 0; i-- {
-		value[i] = byte(n & 0xff)
-		n >>= 8
-	}
-
+	copy(value[32-len(b):], b)
 	return value[:], nil
 }
