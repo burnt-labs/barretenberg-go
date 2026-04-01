@@ -73,6 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          lfs: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download all artifacts
