@@ -83,10 +83,15 @@ func (vk *VerificationKey) CircuitSize() (uint64, error) {
 	return vk.handle.circuitSize()
 }
 
-// Bytes returns the raw verification key bytes.
-// The returned slice should not be modified.
+// Bytes returns a copy of the raw verification key bytes.
+// The returned slice is safe to modify; it does not alias internal state.
 func (vk *VerificationKey) Bytes() []byte {
-	return vk.raw
+	if len(vk.raw) == 0 {
+		return nil
+	}
+	result := make([]byte, len(vk.raw))
+	copy(result, vk.raw)
+	return result
 }
 
 // Hex returns the verification key as a hex-encoded string.
