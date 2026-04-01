@@ -6,12 +6,12 @@ on:
     branches:
       - main
     paths:
-      - 'wrapper/**'
-      - 'include/**'
-      - 'barretenberg/**'
-      - 'checksums.json'
-      - 'scripts/**'
-      - 'Makefile'
+      - "wrapper/**"
+      - "include/**"
+      - "barretenberg/**"
+      - "checksums.json"
+      - "scripts/**"
+      - "Makefile"
 
 permissions:
   contents: write
@@ -43,12 +43,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: "1.25"
 
       - name: Install libc++ (Linux arm64)
         if: matrix.platform == 'linux_arm64'
@@ -62,7 +62,7 @@ jobs:
         run: go test -v -count=1 ./...
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lib-${{ matrix.platform }}
           path: lib/${{ matrix.platform }}/libbarretenberg.a
@@ -71,13 +71,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Configure SSH deploy key
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          lfs: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ssh-private-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
+
+      - uses: actions/checkout@v5
+        with:
+          ssh-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts/
 
@@ -90,29 +94,34 @@ jobs:
           done
           ls -lh lib/*/libbarretenberg.a
 
-      - name: Commit updated libs
+      - name: Commit and push updated libs
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config gpg.format ssh
+          git config user.signingkey "$(ssh-add -L | head -1)"
+          git config commit.gpgsign true
+
           git add lib/
           if git diff --cached --quiet; then
             echo "No changes to libs — skipping commit"
-          else
-            git commit -m "chore: update bundled static libraries"
-            git push
+            exit 0
           fi
+
+          git commit -m "chore: update bundled static libraries"
+          git push
 
   release:
     needs: commit-libs
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts/
 
