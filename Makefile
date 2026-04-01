@@ -21,6 +21,6 @@ test:
 bench:
 	go test -bench=. -benchmem -run=^$$ ./...
 
-# Clean build artifacts (but NOT committed lib/*.a files)
+# Clean temporary build artifacts (does not remove committed lib/*.a files)
 clean:
 	rm -rf /tmp/bb-build-*
