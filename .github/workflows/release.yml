@@ -67,8 +67,42 @@ jobs:
           name: lib-${{ matrix.platform }}
           path: lib/${{ matrix.platform }}/libbarretenberg.a
 
-  release:
+  commit-libs:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Place libs in repo
+        run: |
+          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            mkdir -p "lib/${platform}"
+            cp "artifacts/lib-${platform}/libbarretenberg.a" \
+               "lib/${platform}/libbarretenberg.a"
+          done
+          ls -lh lib/*/libbarretenberg.a
+
+      - name: Commit updated libs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/
+          if git diff --cached --quiet; then
+            echo "No changes to libs — skipping commit"
+          else
+            git commit -m "chore: update bundled static libraries"
+            git push
+          fi
+
+  release:
+    needs: commit-libs
     runs-on: ubuntu-latest
 
     steps:
