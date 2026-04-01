@@ -156,23 +156,39 @@ func (v *Verifier) verifyWithInputs(proof *Proof, publicInputs *PublicInputs) (b
 	// 		ErrInvalidPublicInputs, expectedCount, publicInputs.Count())
 	// }
 
-	// Verify using the CGo bindings
-	err = v.vkey.handle.verifyProof(
-		proof.Bytes(),
-		publicInputs.Bytes(),
-		publicInputs.Count(),
+	// Wrap the CGo verification call with panic recovery.
+	// Note: C++ exceptions do NOT propagate as Go panics through CGo — they are
+	// caught by the C++ wrapper and returned as Go errors. A true C++ abort or
+	// SIGSEGV from the underlying library is also not recoverable here (it
+	// terminates the process). This recover() only catches Go-level panics raised
+	// by the CGo wrapper itself (e.g. nil-dereference, bounds check).
+	var (
+		verified bool
+		callErr  error
 	)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				callErr = fmt.Errorf("panic during UltraHonk verification: %v", r)
+			}
+		}()
 
-	if err == nil {
-		return true, nil
-	}
+		verifyErr := v.vkey.handle.verifyProof(
+			proof.Bytes(),
+			publicInputs.Bytes(),
+			publicInputs.Count(),
+		)
+		if verifyErr == nil {
+			verified = true
+			return
+		}
+		if errors.Is(verifyErr, ErrVerificationFailed) {
+			return
+		}
+		callErr = verifyErr
+	}()
 
-	// Check if this is a verification failure (proof is invalid) vs an actual error
-	if errors.Is(err, ErrVerificationFailed) {
-		return false, nil
-	}
-
-	return false, err
+	return verified, callErr
 }
 
 // NumPublicInputs returns the number of public inputs expected by this verifier.
@@ -229,3 +245,4 @@ func VerifyProofBytes(vkeyData, proofData []byte, publicInputs []string) (bool, 
 
 	return verifier.Verify(proof, publicInputs)
 }
+
