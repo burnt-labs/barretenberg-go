@@ -2,8 +2,8 @@
 *.o
 *.a.tmp
 
-# Pre-built static archives (downloaded from GitHub Releases at build time)
-lib/
+# Pre-built static archives are committed for zero-bootstrap Go module usage.
+# Only ignore temp build artifacts, not the final .a files.
 
 # Design docs (local only)
 docs/
