@@ -76,9 +76,23 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
 
+      - name: Install git-lfs
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq git-lfs
+          git lfs install --system
+
       - uses: actions/checkout@v5
         with:
           ssh-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
+          lfs: false
+
+      - name: Configure LFS HTTPS credentials
+        run: |
+          git config credential.helper store
+          printf 'https://x-access-token:%s@github.com\n' \
+            "${{ secrets.GITHUB_TOKEN }}" >> ~/.git-credentials
+          git config lfs.url \
+            "https://github.com/${{ github.repository }}.git/info/lfs"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
