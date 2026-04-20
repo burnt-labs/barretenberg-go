@@ -22,11 +22,11 @@ jobs:
       matrix:
         include:
           - platform: linux_amd64
-            runner: depot-ubuntu-24.04-4
+            runner: ubicloud-standard-4
             aztec_arch: amd64
             aztec_os: linux
           - platform: linux_arm64
-            runner: depot-ubuntu-24.04-arm-4
+            runner: ubicloud-standard-4-arm
             aztec_arch: arm64
             aztec_os: linux
           - platform: darwin_amd64
@@ -62,14 +62,14 @@ jobs:
         run: go test -v -count=1 ./...
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: lib-${{ matrix.platform }}
           path: lib/${{ matrix.platform }}/libbarretenberg.a
 
   commit-libs:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     steps:
       - name: Configure SSH deploy key
         uses: webfactory/ssh-agent@v0.10.0
@@ -81,7 +81,7 @@ jobs:
           ssh-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: artifacts/
 
@@ -113,7 +113,7 @@ jobs:
 
   release:
     needs: commit-libs
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
 
     steps:
       - uses: actions/checkout@v5
@@ -121,7 +121,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: artifacts/
 
