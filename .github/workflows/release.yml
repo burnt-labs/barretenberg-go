@@ -109,21 +109,54 @@ jobs:
           ls -lh lib/*/libbarretenberg.a
 
       - name: Commit and push updated libs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config gpg.format ssh
-          git config user.signingkey "$(ssh-add -L | head -1)"
-          git config commit.gpgsign true
-
           git add lib/
           if git diff --cached --quiet; then
             echo "No changes to libs — skipping commit"
             exit 0
           fi
 
-          git commit -m "chore: update bundled static libraries"
-          git push
+          # Push LFS binary objects to LFS storage (uses HTTPS credentials)
+          git lfs push origin --all
+
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          BRANCH="${GITHUB_REF_NAME}"
+          HEAD_SHA=$(git rev-parse HEAD)
+          BASE_TREE=$(git rev-parse "HEAD^{tree}")
+
+          # Upload each LFS pointer blob to GitHub's git object DB and collect tree entries.
+          # Commits created via the GitHub API are automatically marked "Verified".
+          TREE_JSON='[]'
+          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            f="lib/${platform}/libbarretenberg.a"
+            LOCAL_BLOB=$(git ls-files --stage "$f" | awk '{print $2}')
+            POINTER=$(git cat-file -p "$LOCAL_BLOB")
+            BLOB_SHA=$(gh api "repos/$OWNER/$REPO/git/blobs" \
+              -f content="$POINTER" -f encoding="utf-8" --jq '.sha')
+            TREE_JSON=$(printf '%s' "$TREE_JSON" | jq \
+              --arg p "$f" --arg s "$BLOB_SHA" \
+              '. + [{"path":$p,"mode":"100644","type":"blob","sha":$s}]')
+          done
+
+          NEW_TREE=$(gh api "repos/$OWNER/$REPO/git/trees" \
+            --input <(jq -n \
+              --argjson tree "$TREE_JSON" \
+              --arg base "$BASE_TREE" \
+              '{"base_tree":$base,"tree":$tree}') \
+            --jq '.sha')
+
+          NEW_COMMIT=$(gh api "repos/$OWNER/$REPO/git/commits" \
+            -f message="chore: update bundled static libraries" \
+            -f tree="$NEW_TREE" \
+            -f "parents[]=$HEAD_SHA" \
+            --jq '.sha')
+
+          gh api "repos/$OWNER/$REPO/git/refs/heads/$BRANCH" \
+            -X PATCH -f sha="$NEW_COMMIT"
+          echo "Created verified commit $NEW_COMMIT on $BRANCH"
 
   release:
     needs: commit-libs
