@@ -1,6 +1,6 @@
 # Test Vectors
 
-Binary test vectors for UltraHonk proof verification, generated with Aztec Barretenberg v4.0.4.
+Binary test vectors for UltraHonk proof verification, generated with Aztec Barretenberg v5.0.0-rc.1.
 
 ## Files
 
@@ -10,9 +10,9 @@ Binary test vectors for UltraHonk proof verification, generated with Aztec Barre
 
 ## Regenerating
 
-Requires [Noir](https://noir-lang.org/) (nargo) and [Barretenberg](https://github.com/AztecProtocol/aztec-packages) CLI (bb) v4.0.4.
+Requires [Noir](https://noir-lang.org/) (nargo) and [Barretenberg](https://github.com/AztecProtocol/aztec-packages) CLI (bb) v5.0.0-rc.1.
 
-1. Install nargo and bb CLI at version 4.0.4
+1. Install nargo and bb CLI at version v5.0.0-rc.1
 2. Create a simple Noir circuit (e.g., `x * x == y`)
 3. Generate proof and verification key:
 
@@ -22,6 +22,13 @@ bb write_vk -b target/circuit.json -o testdata/statics/vk
 nargo prove
 bb prove -b target/circuit.json -w target/witness.gz -o testdata/statics/proof
 # Extract public inputs from the witness
+```
+
+To run all golang test cases, run this at root level
+
+```bash
+mkdir -p /private/tmp/barretenberg-go-cache
+GOCACHE=/private/tmp/barretenberg-go-cache go test -v ./...
 ```
 
 See the original generation script for details:

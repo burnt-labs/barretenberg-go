@@ -20,22 +20,27 @@
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"   // get_bn254_g2_crs_element()
 // Version information
 #ifndef BB_VERSION
-#define BB_VERSION "4.0.4"
+#define BB_VERSION "v5.0.0-rc.1"
 #endif
 
 namespace
 {
 
-    // Thread-local error message storage
-    thread_local std::string g_last_error;
+    // CGo calls made from one goroutine are not guaranteed to stay on one OS
+    // thread, so the error payload cannot be thread_local.
+    std::mutex g_last_error_mutex;
+    std::string g_last_error;
+    thread_local std::string g_last_error_view;
 
     void set_last_error(const std::string &msg)
     {
+        std::lock_guard<std::mutex> lock(g_last_error_mutex);
         g_last_error = msg;
     }
 
     void clear_last_error()
     {
+        std::lock_guard<std::mutex> lock(g_last_error_mutex);
         g_last_error.clear();
     }
 
@@ -252,11 +257,13 @@ extern "C"
 
     const char *bb_get_last_error(void)
     {
+        std::lock_guard<std::mutex> lock(g_last_error_mutex);
         if (g_last_error.empty())
         {
             return nullptr;
         }
-        return g_last_error.c_str();
+        g_last_error_view = g_last_error;
+        return g_last_error_view.c_str();
     }
 
     void bb_clear_last_error(void)
