@@ -29,8 +29,8 @@ jobs:
         with:
           go-version: '1.25'
 
-      - name: Install libc++ (Linux arm64)
-        if: matrix.platform == 'linux_arm64'
+      - name: Install libc++ (Linux)
+        if: startsWith(matrix.platform, 'linux_')
         run: sudo apt-get update && sudo apt-get install -y libc++-dev libc++abi-dev
 
       - name: Build wrapper
