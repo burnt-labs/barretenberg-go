@@ -24,12 +24,5 @@ bb prove -b target/circuit.json -w target/witness.gz -o testdata/statics/proof
 # Extract public inputs from the witness
 ```
 
-To run all golang test cases, run this at root level
-
-```bash
-mkdir -p /private/tmp/barretenberg-go-cache
-GOCACHE=/private/tmp/barretenberg-go-cache go test -v ./...
-```
-
 See the original generation script for details:
 https://github.com/burnt-labs/xion (branch: feature/barrentenberg-go-bindings, file: x/zk/barretenberg/testdata/generate.sh)
