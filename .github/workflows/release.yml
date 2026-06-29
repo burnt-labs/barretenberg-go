@@ -118,9 +118,6 @@ jobs:
             exit 0
           fi
 
-          # Push LFS binary objects to LFS storage (uses HTTPS credentials)
-          git lfs push origin --all
-
           OWNER="${GITHUB_REPOSITORY_OWNER}"
           REPO="${GITHUB_REPOSITORY#*/}"
           BRANCH="${GITHUB_REF_NAME}"
@@ -134,6 +131,12 @@ jobs:
             f="lib/${platform}/libbarretenberg.a"
             LOCAL_BLOB=$(git ls-files --stage "$f" | awk '{print $2}')
             POINTER=$(git cat-file -p "$LOCAL_BLOB")
+            LFS_OID=$(printf '%s\n' "$POINTER" | awk '/^oid sha256:/ { sub(/^sha256:/, "", $2); print $2 }')
+            if [ -z "$LFS_OID" ]; then
+              echo "Expected $f to be staged as an LFS pointer"
+              exit 1
+            fi
+            git lfs push --object-id origin "$LFS_OID"
             BLOB_SHA=$(gh api "repos/$OWNER/$REPO/git/blobs" \
               -f content="$POINTER" -f encoding="utf-8" --jq '.sha')
             TREE_JSON=$(printf '%s' "$TREE_JSON" | jq \
