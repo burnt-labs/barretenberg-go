@@ -1,6 +1,6 @@
 # Test Vectors
 
-Binary test vectors for UltraHonk proof verification, generated with Aztec Barretenberg v4.0.4.
+Binary test vectors for UltraHonk proof verification, generated with Aztec Barretenberg v5.0.0-rc.1.
 
 ## Files
 
@@ -10,9 +10,9 @@ Binary test vectors for UltraHonk proof verification, generated with Aztec Barre
 
 ## Regenerating
 
-Requires [Noir](https://noir-lang.org/) (nargo) and [Barretenberg](https://github.com/AztecProtocol/aztec-packages) CLI (bb) v4.0.4.
+Requires [Noir](https://noir-lang.org/) (nargo) and [Barretenberg](https://github.com/AztecProtocol/aztec-packages) CLI (bb) v5.0.0-rc.1.
 
-1. Install nargo and bb CLI at version 4.0.4
+1. Install nargo and bb CLI at version v5.0.0-rc.1
 2. Create a simple Noir circuit (e.g., `x * x == y`)
 3. Generate proof and verification key:
 

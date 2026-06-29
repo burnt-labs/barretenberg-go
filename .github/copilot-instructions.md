@@ -60,7 +60,7 @@ Runners: `ubuntu-latest` (linux_amd64), `ubuntu-24.04-arm` (linux_arm64), `macos
 2. `wrapper/barretenberg_wrapper.cpp` — C++ implementation returning codes
 3. `barretenberg/errors.go` — Go constants and `errorFromCode()` switch
 
-**CGo link flags are per-platform.** `link_linux_amd64.go` uses `-lstdc++` (libstdc++); all other platforms use `-lc++` (libc++). This matches Aztec's pre-built archives (amd64 built with GCC, arm64 with Zig/clang). The divergence does not affect verification correctness — barretenberg's cryptographic operations (BN254 field arithmetic, polynomial commitments, Poseidon2 hashing) are custom implementations independent of C++ stdlib behavior.
+**CGo link flags are per-platform.** All platforms link `libc++`. Aztec's pre-built archives use libc++ on all targets, so the wrapper and final Go link must use the same C++ standard library to avoid ABI mismatches in symbols that involve `std::vector`, `std::string`, etc.
 
 **Thread safety pattern.** All public types (`Verifier`, `VerificationKey`, `vkeyHandle`) use `sync.RWMutex`. Reads take `RLock`, mutations and `Close()` take full `Lock`. Always check `isClosed` under the lock before operating on C pointers. Follow this pattern when adding new methods.
 

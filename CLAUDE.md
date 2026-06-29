@@ -49,7 +49,7 @@ Conventional commit prefixes: `feat:` = minor bump, `fix:` = patch bump, `feat!:
 
 ## Testing
 
-Tests use binary test vectors in `barretenberg/testdata/statics/`. These were generated with Noir + bb CLI at Aztec v4.0.4. See `barretenberg/testdata/README.md` for regeneration instructions.
+Tests use binary test vectors in `barretenberg/testdata/statics/`. These should be generated with Noir + bb CLI matching the pinned Aztec version. See `barretenberg/testdata/README.md` for regeneration instructions.
 
 Run tests: `go test -v -count=1 ./barretenberg/`
 

@@ -20,7 +20,7 @@
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"   // get_bn254_g2_crs_element()
 // Version information
 #ifndef BB_VERSION
-#define BB_VERSION "4.0.4"
+#define BB_VERSION "v5.0.0-rc.1"
 #endif
 
 namespace
