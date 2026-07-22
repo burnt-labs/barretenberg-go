@@ -11,7 +11,7 @@ barretenberg/              Go package — all Go source lives here
   vkey.go                  VerificationKey parsing and validation
   proof.go                 Proof and PublicInputs types
   errors.go                Sentinel errors and error codes (must match C enum)
-  link_<os>_<arch>.go      Platform-specific CGo LDFLAGS (4 files)
+  link_<os>_<arch>.go      Platform-specific CGo LDFLAGS
   doc.go                   Package godoc
   *_test.go                Tests (3 files, ~900 lines total)
   testdata/statics/        Binary test vectors: vk, proof, public_inputs
@@ -19,8 +19,8 @@ wrapper/                   C++ wrapper shim (barretenberg_wrapper.cpp, 277 lines
 include/                   C header (barretenberg_wrapper.h) — defines bb_error_t enum and API
 scripts/build-wrapper.sh   Build script: downloads Aztec .a, compiles wrapper, merges archives
 lib/<os>_<arch>/           Static archives (gitignored; built by `make build` or downloaded from releases)
-checksums.json             Aztec release version (aztec_tag) and SHA256 checksums for all 4 platform tarballs
-.github/workflows/release.yml   CI: builds all 4 platforms, creates GitHub Release with assets
+checksums.json             Aztec release version (aztec_tag) and SHA256 checksums for platform tarballs
+.github/workflows/release.yml   CI: builds all platform variants, creates GitHub Release with assets
 Makefile                   Convenience targets
 go.mod                     Module: github.com/burnt-labs/barretenberg-go (go 1.25, zero dependencies, no go.sum)
 ```
@@ -40,7 +40,7 @@ make clean          # Removes /tmp/bb-build-* temp dirs (does NOT delete lib/)
 
 **Tests complete in <1 second.** All 29 tests pass. The `TestVerifyInvalidProof` test prints a `UltraVerifier: verification failed` line to stderr — this is expected, not an error.
 
-**Cross-compilation:** `make build-<platform>` where platform is `linux_amd64`, `linux_arm64`, `darwin_amd64`, or `darwin_arm64`. Darwin amd64 cross-compiles from arm64 runners using `-target x86_64-apple-macos10.15 -isysroot $(xcrun --show-sdk-path)`.
+**Cross-compilation:** `make build-<platform>` where platform includes `linux_amd64`, `linux_arm64`, `linux_arm64_musl`, `darwin_amd64`, or `darwin_arm64`. The musl variant uses the pinned Zig installer and is selected by consumers with the `muslc` build tag.
 
 **No linter config exists.** Standard `go vet ./...` works once the library is built.
 
@@ -49,7 +49,7 @@ make clean          # Removes /tmp/bb-build-* temp dirs (does NOT delete lib/)
 `.github/workflows/release.yml` triggers on push to main (when source/build files change) or `workflow_dispatch`.
 
 1. **build** job (4-platform matrix): builds archive, runs tests (skipped for cross-compiled darwin_amd64), uploads artifact
-2. **release** job: downloads all 4 artifacts, runs `go-semantic-release` (dry) to determine version from conventional commits (`feat:` = minor, `fix:` = patch, `feat!:` / `BREAKING CHANGE:` = major), creates GitHub Release with `libbarretenberg_<os>_<arch>.a` assets
+2. **release** job: downloads all artifacts, runs `go-semantic-release` (dry) to determine version from conventional commits (`feat:` = minor, `fix:` = patch, `feat!:` / `BREAKING CHANGE:` = major), creates GitHub Release with `libbarretenberg_<platform>.a` assets
 
 Runners: `ubuntu-latest` (linux_amd64), `ubuntu-24.04-arm` (linux_arm64), `macos-15` (darwin_amd64 cross-compile), `macos-latest` (darwin_arm64). The darwin_amd64 build requires macOS 15+ (Xcode 16) for full C++20 support in Aztec headers.
 
@@ -72,7 +72,7 @@ Runners: `ubuntu-latest` (linux_amd64), `ubuntu-24.04-arm` (linux_arm64), `macos
 
 **Test vectors** in `barretenberg/testdata/statics/` were generated with Aztec v4.0.4. Regeneration instructions are in `barretenberg/testdata/README.md`.
 
-**Upstream version.** Pinned in `checksums.json` under `aztec_tag`. To upgrade: update `aztec_tag`, update all 4 SHA256 checksums, rebuild all platforms, run tests.
+**Upstream version.** Pinned in `checksums.json` under `aztec_tag`. To upgrade: update `aztec_tag`, update all upstream SHA256 checksums, rebuild all platforms, run tests.
 
 ## Common pitfalls
 

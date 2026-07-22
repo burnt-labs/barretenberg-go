@@ -11,7 +11,7 @@ build-%:
 	./scripts/build-wrapper.sh --platform $*
 
 # Build for all platforms (requires cross-compilation toolchains)
-build-all: build-linux_amd64 build-linux_arm64 build-darwin_amd64 build-darwin_arm64
+build-all: build-linux_amd64 build-linux_arm64 build-linux_arm64_musl build-darwin_amd64 build-darwin_arm64
 
 # Run tests (requires lib/<platform>/libbarretenberg.a to exist)
 test:
