@@ -8,9 +8,9 @@
 # Version and checksums are read from checksums.json in the repo root.
 #
 # Usage:
-#   ./scripts/build-wrapper.sh --platform linux_amd64|linux_arm64|darwin_amd64|darwin_arm64
+#   ./scripts/build-wrapper.sh --platform linux_amd64|linux_arm64|linux_arm64_musl|darwin_amd64|darwin_arm64
 #
-# Supported platforms: linux_amd64, linux_arm64, darwin_amd64, darwin_arm64
+# Supported platforms: linux_amd64, linux_arm64, linux_arm64_musl, darwin_amd64, darwin_arm64
 #
 # Prerequisites:
 #   - clang++ with C++20 support (honours $CXX; defaults to clang++)
@@ -34,7 +34,7 @@ MSGPACK_COMMIT="$(python3 -c "import json; print(json.load(open('$REPO_ROOT/chec
 PLATFORM=""
 
 usage() {
-    echo "Usage: $0 --platform linux_amd64|linux_arm64|darwin_amd64|darwin_arm64" >&2
+    echo "Usage: $0 --platform linux_amd64|linux_arm64|linux_arm64_musl|darwin_amd64|darwin_arm64" >&2
     exit 1
 }
 
@@ -61,35 +61,46 @@ case "$PLATFORM" in
     linux_amd64)
         AZTEC_ARCH="amd64"
         AZTEC_OS="linux"
-        EXTRA_LDFLAGS="-lc++ -lm -lpthread"
         LINUX_CROSS_TARGET="--target=x86_64-linux-gnu"
         LINUX_STDLIB="-stdlib=libc++"   # match Aztec's amd64 build (libc++)
         ;;
     linux_arm64)
         AZTEC_ARCH="arm64"
         AZTEC_OS="linux"
-        EXTRA_LDFLAGS="-lc++ -lm -lpthread"
         LINUX_CROSS_TARGET="--target=aarch64-linux-gnu"
         LINUX_STDLIB="-stdlib=libc++"   # match Zig/libc++ used for arm64
+        ;;
+    linux_arm64_musl)
+        AZTEC_ARCH="arm64"
+        AZTEC_OS="linux"
+        LINUX_CROSS_TARGET="-target aarch64-linux-musl"
+        LINUX_STDLIB="-stdlib=libc++"
         ;;
     darwin_amd64)
         AZTEC_ARCH="amd64"
         AZTEC_OS="darwin"
-        EXTRA_LDFLAGS="-lc++ -lm"
         DARWIN_TARGET="-target x86_64-apple-macos11.0"
         ;;
     darwin_arm64)
         AZTEC_ARCH="arm64"
         AZTEC_OS="darwin"
-        EXTRA_LDFLAGS="-lc++ -lm"
         DARWIN_TARGET="-mmacosx-version-min=11.0"
         ;;
     *)
         echo "ERROR: unsupported platform '$PLATFORM'." >&2
-        echo "  Supported platforms: linux_amd64, linux_arm64, darwin_amd64, darwin_arm64" >&2
+        echo "  Supported platforms: linux_amd64, linux_arm64, linux_arm64_musl, darwin_amd64, darwin_arm64" >&2
         exit 1
         ;;
 esac
+
+if [[ "$PLATFORM" == "linux_arm64_musl" ]]; then
+    if [[ "${CC:-}" != *zig-cc || "${CXX:-}" != *zig-c++ || "${AR:-}" != *zig-ar ]]; then
+        echo "ERROR: linux_arm64_musl requires the pinned Zig toolchain wrappers." >&2
+        echo "  Run 'make build-linux_arm64_musl', or set CC=zig-cc CXX=zig-c++ AR=zig-ar" >&2
+        echo "  after installing the toolchain with scripts/install-zig.sh." >&2
+        exit 1
+    fi
+fi
 
 LIB_DIR="$REPO_ROOT/lib/$PLATFORM"
 
@@ -232,8 +243,9 @@ if [[ "$AZTEC_OS" == "darwin" && -n "${DARWIN_TARGET:-}" ]]; then
     CLANG_FLAGS=($DARWIN_TARGET "${CLANG_FLAGS[@]}")
 fi
 
-# Apply Linux-specific flags when using clang++
-if [[ "$AZTEC_OS" == "linux" && "${CXX:-clang++}" == *clang* ]]; then
+# Apply Linux target and C++ standard-library flags. The musl build uses the
+# pinned Zig wrapper installed by scripts/install-zig.sh.
+if [[ "$AZTEC_OS" == "linux" && ( "${CXX:-clang++}" == *clang* || "${CXX:-clang++}" == *zig-c++ ) ]]; then
     STDLIB_FLAGS=()
     [[ -n "${LINUX_STDLIB:-}" ]] && STDLIB_FLAGS=($LINUX_STDLIB)
     CLANG_FLAGS=($LINUX_CROSS_TARGET "${STDLIB_FLAGS[@]}" "${CLANG_FLAGS[@]}")
@@ -242,28 +254,41 @@ fi
 ${CXX:-clang++} "${CLANG_FLAGS[@]}"
 echo "  Compiled: $WRAPPER_O"
 
+EXTRA_OBJECTS=()
+if [[ "$PLATFORM" == "linux_arm64_musl" ]]; then
+    MUSL_COMPAT_O="$WORK_DIR/musl_compat.o"
+    ${CC:-clang} -target aarch64-linux-musl -fPIC -O2 \
+        -c "$REPO_ROOT/wrapper/musl_compat.c" -o "$MUSL_COMPAT_O"
+    EXTRA_OBJECTS+=("$MUSL_COMPAT_O")
+    echo "  Compiled: $MUSL_COMPAT_O"
+fi
+
 # ── Step 4: Merge wrapper.o + libbb-external.a → libbarretenberg.a ───────────
 echo ""
 echo "▶ Step 4: Merging into libbarretenberg.a..."
 mkdir -p "$LIB_DIR"
 OUTPUT_A="$LIB_DIR/libbarretenberg.a"
+OUTPUT_CANDIDATE="$LIB_DIR/.libbarretenberg.a.$$.tmp"
+trap 'rm -rf "$WORK_DIR"; rm -f "$OUTPUT_CANDIDATE"' EXIT
 
 # Append approach: copy the Aztec pre-built archive as-is, then add our wrapper
 # object on top. ar rcs appends to an existing archive without touching existing
 # members. llvm-ar handles both ELF and Mach-O archives.
-cp "$BB_EXTERNAL_A" "$OUTPUT_A"
-${AR:-ar} rcs "$OUTPUT_A" "$WRAPPER_O"
+cp "$BB_EXTERNAL_A" "$OUTPUT_CANDIDATE"
+${AR:-ar} rcs "$OUTPUT_CANDIDATE" "$WRAPPER_O" "${EXTRA_OBJECTS[@]}"
 
 # Strip debug symbols to reduce archive size (~544MB → ~48MB on darwin).
 # Uses strip -S (macOS) or objcopy --strip-debug via strip (Linux).
 # This is critical for staying under GitHub's 100MB file size limit.
 echo "  Stripping debug symbols..."
 if [[ "$AZTEC_OS" == "darwin" ]]; then
-    strip -S "$OUTPUT_A" 2>/dev/null || true
+    strip -S "$OUTPUT_CANDIDATE" 2>/dev/null || true
 else
-    ${STRIP:-strip} --strip-debug "$OUTPUT_A" 2>/dev/null || true
+    ${STRIP:-strip} --strip-debug "$OUTPUT_CANDIDATE" 2>/dev/null || true
 fi
 
+${AR:-ar} t "$OUTPUT_CANDIDATE" >/dev/null
+mv -f "$OUTPUT_CANDIDATE" "$OUTPUT_A"
 echo "  Output: $(du -sh "$OUTPUT_A" | cut -f1) $OUTPUT_A"
 
 echo ""

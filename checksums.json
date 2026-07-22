@@ -11,6 +11,10 @@
       "file": "barretenberg-static-arm64-linux.tar.gz",
       "sha256": "53ba6a068d371f14fbb1846e1688704a508c2bc33b75f629e8d972362144ac8f"
     },
+    "linux_arm64_musl": {
+      "file": "barretenberg-static-arm64-linux.tar.gz",
+      "sha256": "53ba6a068d371f14fbb1846e1688704a508c2bc33b75f629e8d972362144ac8f"
+    },
     "darwin_amd64": {
       "file": "barretenberg-static-amd64-darwin.tar.gz",
       "sha256": "91c7c955adf5ada252c3c1e370f8b43a7d36547478e784f9fb4ac970f453a337"

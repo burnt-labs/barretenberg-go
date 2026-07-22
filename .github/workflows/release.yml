@@ -29,6 +29,12 @@ jobs:
             runner: ubicloud-standard-4-arm
             aztec_arch: arm64
             aztec_os: linux
+          - platform: linux_arm64_musl
+            runner: ubicloud-standard-4-arm
+            aztec_arch: arm64
+            aztec_os: linux
+            musl: true
+            cross_compile: true
           - platform: darwin_amd64
             runner: macos-15
             aztec_arch: amd64
@@ -51,15 +57,46 @@ jobs:
           go-version: "1.25"
 
       - name: Install libc++ (Linux)
-        if: startsWith(matrix.platform, 'linux_')
+        if: startsWith(matrix.platform, 'linux_') && matrix.musl != true
         run: sudo apt-get update && sudo apt-get install -y libc++-dev libc++abi-dev
 
+      - name: Install pinned Zig toolchain
+        if: matrix.musl == true
+        run: |
+          ./scripts/install-zig.sh "${RUNNER_TEMP}/zig-0.14.1" >> "$GITHUB_PATH"
+
       - name: Build wrapper
+        env:
+          CC: ${{ matrix.musl && 'zig-cc' || '' }}
+          CXX: ${{ matrix.musl && 'zig-c++' || '' }}
+          AR: ${{ matrix.musl && 'zig-ar' || '' }}
         run: ./scripts/build-wrapper.sh --platform ${{ matrix.platform }}
 
       - name: Run tests
         if: matrix.cross_compile != true
         run: go test -v -count=1 ./...
+
+      - name: Verify static musl link
+        if: matrix.musl == true
+        run: |
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 \
+            CC=aarch64-linux-musl-zig-cc \
+            CXX=aarch64-linux-musl-zig-c++ \
+            go test -c -tags muslc \
+            -ldflags "-linkmode=external -extldflags '-static'" \
+            -o "${RUNNER_TEMP}/barretenberg.test" ./barretenberg
+
+          file "${RUNNER_TEMP}/barretenberg.test" | grep -q 'statically linked'
+          if readelf -l "${RUNNER_TEMP}/barretenberg.test" | grep -q INTERP; then
+            echo "musl test binary unexpectedly has an ELF interpreter"
+            exit 1
+          fi
+          if readelf -d "${RUNNER_TEMP}/barretenberg.test" 2>&1 | grep -q NEEDED; then
+            echo "musl test binary unexpectedly has dynamic dependencies"
+            exit 1
+          fi
+
+          "${RUNNER_TEMP}/barretenberg.test" -test.v
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -101,7 +138,7 @@ jobs:
 
       - name: Place libs in repo
         run: |
-          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+          for platform in linux_amd64 linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
             mkdir -p "lib/${platform}"
             cp "artifacts/lib-${platform}/libbarretenberg.a" \
                "lib/${platform}/libbarretenberg.a"
@@ -127,7 +164,7 @@ jobs:
           # Upload each LFS pointer blob to GitHub's git object DB and collect tree entries.
           # Commits created via the GitHub API are automatically marked "Verified".
           TREE_JSON='[]'
-          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+          for platform in linux_amd64 linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
             f="lib/${platform}/libbarretenberg.a"
             LOCAL_BLOB=$(git ls-files --stage "$f" | awk '{print $2}')
             POINTER=$(git cat-file -p "$LOCAL_BLOB")
@@ -178,7 +215,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+          for platform in linux_amd64 linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
             cp "artifacts/lib-${platform}/libbarretenberg.a" \
                "release-assets/libbarretenberg_${platform}.a"
           done
