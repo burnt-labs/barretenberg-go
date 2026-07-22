@@ -61,34 +61,29 @@ case "$PLATFORM" in
     linux_amd64)
         AZTEC_ARCH="amd64"
         AZTEC_OS="linux"
-        EXTRA_LDFLAGS="-lc++ -lm -lpthread"
         LINUX_CROSS_TARGET="--target=x86_64-linux-gnu"
         LINUX_STDLIB="-stdlib=libc++"   # match Aztec's amd64 build (libc++)
         ;;
     linux_arm64)
         AZTEC_ARCH="arm64"
         AZTEC_OS="linux"
-        EXTRA_LDFLAGS="-lc++ -lm -lpthread"
         LINUX_CROSS_TARGET="--target=aarch64-linux-gnu"
         LINUX_STDLIB="-stdlib=libc++"   # match Zig/libc++ used for arm64
         ;;
     linux_arm64_musl)
         AZTEC_ARCH="arm64"
         AZTEC_OS="linux"
-        EXTRA_LDFLAGS="-lc++ -lm -lpthread"
         LINUX_CROSS_TARGET="-target aarch64-linux-musl"
         LINUX_STDLIB="-stdlib=libc++"
         ;;
     darwin_amd64)
         AZTEC_ARCH="amd64"
         AZTEC_OS="darwin"
-        EXTRA_LDFLAGS="-lc++ -lm"
         DARWIN_TARGET="-target x86_64-apple-macos11.0"
         ;;
     darwin_arm64)
         AZTEC_ARCH="arm64"
         AZTEC_OS="darwin"
-        EXTRA_LDFLAGS="-lc++ -lm"
         DARWIN_TARGET="-mmacosx-version-min=11.0"
         ;;
     *)

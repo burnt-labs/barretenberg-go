@@ -11,6 +11,11 @@ if [[ $# -ne 1 || -z "$1" ]]; then
     exit 1
 fi
 
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "The pinned Zig toolchain installer supports Linux hosts only." >&2
+    exit 1
+fi
+
 INSTALL_DIR="${1%/}"
 case "$(uname -m)" in
     x86_64)
@@ -47,7 +52,20 @@ else
     ARCHIVE="$WORK_DIR/zig.tar.xz"
     URL="https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz"
     curl --fail --location --retry 5 --retry-all-errors --output "$ARCHIVE" "$URL"
-    printf '%s  %s\n' "$EXPECTED_SHA256" "$ARCHIVE" | sha256sum --check --status
+    if command -v sha256sum &>/dev/null; then
+        ACTUAL_SHA256="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+    elif command -v shasum &>/dev/null; then
+        ACTUAL_SHA256="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+    else
+        echo "Neither sha256sum nor shasum is available to verify the Zig archive." >&2
+        exit 1
+    fi
+    if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+        echo "Zig archive SHA-256 mismatch." >&2
+        echo "  Expected: $EXPECTED_SHA256" >&2
+        echo "  Got:      $ACTUAL_SHA256" >&2
+        exit 1
+    fi
 
     EXTRACT_DIR="$WORK_DIR/extract"
     mkdir -p "$EXTRACT_DIR"

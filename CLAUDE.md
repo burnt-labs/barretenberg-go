@@ -36,7 +36,7 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 ## Key conventions
 
 - **Bundled static archives** — All platform `libbarretenberg.a` files are committed to `lib/` so that `go get` + `go test` works without any bootstrap step. CI rebuilds and re-commits them when source files change. Release assets are also uploaded for standalone download.
-- **Linux ARM64 musl** — `linux_arm64_musl` is built with the SHA-256-pinned Zig 0.14.1 toolchain from `scripts/install-zig.sh`. Consumers select it with the `muslc` Go build tag.
+- **Linux ARM64 musl** — `make build-linux_arm64_musl` provisions the SHA-256-pinned Zig 0.14.1 toolchain from `scripts/install-zig.sh`. Consumers select the resulting archive with the `muslc` Go build tag.
 - **CGo paths** — `${SRCDIR}` in link files resolves to `barretenberg/`, so paths to `lib/` and `include/` use `../` prefix.
 - **Platform-specific C++ stdlib** — All platforms link `libc++`. This is set in both the link_*.go files and build-wrapper.sh.
 - **Debug symbol stripping** — Build script strips debug symbols to reduce archive size (~544MB → ~48MB on darwin).

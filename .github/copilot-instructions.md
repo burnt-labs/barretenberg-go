@@ -40,7 +40,7 @@ make clean          # Removes /tmp/bb-build-* temp dirs (does NOT delete lib/)
 
 **Tests complete in <1 second.** All 29 tests pass. The `TestVerifyInvalidProof` test prints a `UltraVerifier: verification failed` line to stderr — this is expected, not an error.
 
-**Cross-compilation:** `make build-<platform>` where platform includes `linux_amd64`, `linux_arm64`, `linux_arm64_musl`, `darwin_amd64`, or `darwin_arm64`. The musl variant uses the pinned Zig installer and is selected by consumers with the `muslc` build tag.
+**Cross-compilation:** `make build-<platform>` where platform includes `linux_amd64`, `linux_arm64`, `linux_arm64_musl`, `darwin_amd64`, or `darwin_arm64`. The musl Make target provisions the pinned Zig toolchain and is selected by consumers with the `muslc` build tag.
 
 **No linter config exists.** Standard `go vet ./...` works once the library is built.
 
