@@ -96,6 +96,8 @@ jobs:
             exit 1
           fi
 
+          "${RUNNER_TEMP}/barretenberg.test" -test.v
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:

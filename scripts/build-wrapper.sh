@@ -93,6 +93,15 @@ case "$PLATFORM" in
         ;;
 esac
 
+if [[ "$PLATFORM" == "linux_arm64_musl" ]]; then
+    if [[ "${CC:-}" != *zig-cc || "${CXX:-}" != *zig-c++ || "${AR:-}" != *zig-ar ]]; then
+        echo "ERROR: linux_arm64_musl requires the pinned Zig toolchain wrappers." >&2
+        echo "  Run 'make build-linux_arm64_musl', or set CC=zig-cc CXX=zig-c++ AR=zig-ar" >&2
+        echo "  after installing the toolchain with scripts/install-zig.sh." >&2
+        exit 1
+    fi
+fi
+
 LIB_DIR="$REPO_ROOT/lib/$PLATFORM"
 
 TARBALL_URL="${BB_AZTEC_REPO}/releases/download/${BB_AZTEC_TAG}/barretenberg-static-${AZTEC_ARCH}-${AZTEC_OS}.tar.gz"

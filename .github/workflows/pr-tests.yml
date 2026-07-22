@@ -77,3 +77,5 @@ jobs:
             echo "musl test binary unexpectedly has dynamic dependencies"
             exit 1
           fi
+
+          "${RUNNER_TEMP}/barretenberg.test" -test.v
