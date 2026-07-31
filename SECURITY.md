@@ -94,7 +94,7 @@ as written; we do not reclassify or negotiate severity on a reporter's behalf.
 ## Responsible Disclosure
 
 - Do not exploit a vulnerability beyond what is necessary to confirm it exists
-- **Do not test against XION mainnet.** Testing that targets live production
+- **Do not test against xion mainnet.** Testing that targets live production
   systems will disqualify the report
 - Do not access, modify, or exfiltrate user data
 - Do not disclose publicly before a fix is confirmed and deployed
