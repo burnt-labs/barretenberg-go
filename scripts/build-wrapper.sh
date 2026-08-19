@@ -275,7 +275,10 @@ trap 'rm -rf "$WORK_DIR"; rm -f "$OUTPUT_CANDIDATE"' EXIT
 # object on top. ar rcs appends to an existing archive without touching existing
 # members. llvm-ar handles both ELF and Mach-O archives.
 cp "$BB_EXTERNAL_A" "$OUTPUT_CANDIDATE"
-${AR:-ar} rcs "$OUTPUT_CANDIDATE" "$WRAPPER_O" "${EXTRA_OBJECTS[@]}"
+# macOS runners ship bash 3.2, where expanding an empty array under `set -u`
+# aborts the script. Guard the expansion so non-musl platforms, which add no
+# extra objects, still reach the archive merge.
+${AR:-ar} rcs "$OUTPUT_CANDIDATE" "$WRAPPER_O" ${EXTRA_OBJECTS[@]+"${EXTRA_OBJECTS[@]}"}
 
 # Strip debug symbols to reduce archive size (~544MB → ~48MB on darwin).
 # Uses strip -S (macOS) or objcopy --strip-debug via strip (Linux).
