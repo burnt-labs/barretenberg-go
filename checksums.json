@@ -1,27 +1,27 @@
 {
-  "aztec_tag": "v5.0.0-rc.1",
+  "aztec_tag": "v5.2.0",
   "aztec_repo": "https://github.com/AztecProtocol/aztec-packages",
   "msgpack_commit": "c0334576ed657fb3b3c49e8e61402989fb84146d",
   "assets": {
     "linux_amd64": {
       "file": "barretenberg-static-amd64-linux.tar.gz",
-      "sha256": "b63b4b52aa2087eb04d7c37c6045ef9224bd34129e8b8b348203552029f91ae8"
+      "sha256": "3726c437ef017d6a0c0d9b5f0e854197e364bc33bf7e7ccd20aee8cac7c12e6b"
     },
     "linux_arm64": {
       "file": "barretenberg-static-arm64-linux.tar.gz",
-      "sha256": "53ba6a068d371f14fbb1846e1688704a508c2bc33b75f629e8d972362144ac8f"
+      "sha256": "12e4db24d1f6e6bbbaec360ff8eeab2d4665afd8f40b1302e4ddae6a4065d098"
     },
     "linux_arm64_musl": {
       "file": "barretenberg-static-arm64-linux.tar.gz",
-      "sha256": "53ba6a068d371f14fbb1846e1688704a508c2bc33b75f629e8d972362144ac8f"
+      "sha256": "12e4db24d1f6e6bbbaec360ff8eeab2d4665afd8f40b1302e4ddae6a4065d098"
     },
     "darwin_amd64": {
       "file": "barretenberg-static-amd64-darwin.tar.gz",
-      "sha256": "91c7c955adf5ada252c3c1e370f8b43a7d36547478e784f9fb4ac970f453a337"
+      "sha256": "5923ae204ecee4aa53476447e7d4fd6fb6361f993dd20425ed4df9c533951f95"
     },
     "darwin_arm64": {
       "file": "barretenberg-static-arm64-darwin.tar.gz",
-      "sha256": "a789011895b97f4de0599247fe175125ebe85f2d6e12a488bd8d0a9e5a6bd9a3"
+      "sha256": "71e4e6c904cede582374d2aaf61530090b2d7f949943648835585a931c25e054"
     }
   }
 }
