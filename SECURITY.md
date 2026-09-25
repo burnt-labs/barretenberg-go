@@ -1,11 +1,11 @@
 # Security Policy
 
 This policy covers the Go bindings and proof verification wrappers for the
-Barretenberg ZK proving library in this repository.
-
-It supplements the
-[organization-wide policy](https://github.com/burnt-labs/.github/blob/main/SECURITY.md),
-which governs anything not addressed here.
+Barretenberg ZK proving library in this repository — an asset in the
+[Blockchain / DLT bug bounty program](https://github.com/burnt-labs/bug-bounty/blob/main/programs/blockchain.md).
+This file summarizes repository-specific terms. The published
+[`burnt-labs/bug-bounty`](https://github.com/burnt-labs/bug-bounty) program is
+canonical; where the documents differ, the program terms govern.
 
 ## Reporting a Vulnerability
 
@@ -13,7 +13,7 @@ which governs anything not addressed here.
 
 | Type of finding                  | How to report                                         |
 | -------------------------------- | ----------------------------------------------------- |
-| Security vulnerability           | Email [security@burnt.com](mailto:security@burnt.com)  |
+| Security vulnerability           | **Security → Report a vulnerability** on this repository, or email [security@burnt.com](mailto:security@burnt.com) |
 | Non-sensitive or operational bug | Open a GitHub issue on this repository                 |
 
 Include the type of vulnerability, affected version, steps to reproduce, impact,
@@ -21,8 +21,10 @@ how an attacker would exploit it, and any known mitigations.
 
 We acknowledge receipt within **5 business days** and provide a triage decision
 within **14 days**. Active exploitation, or confirmed attacker awareness of an
-unpatched vulnerability, escalates the issue to Critical handling regardless of
-its original classification.
+unpatched vulnerability, escalates the issue to Critical **response handling**
+— prioritization, coordination, and disclosure timing — regardless of its
+original classification. That escalation does not change the finding's
+severity assessment or reward eligibility.
 
 ## Scope
 
@@ -64,8 +66,10 @@ substantially more weight than one confined to this repository in isolation.
   Barretenberg are not eligible here and should be reported to that project.
   Only code originating in this repository is covered
 - Other cryptographic dependencies and Go standard library components
-- The chain node and its modules — see [`burnt-labs/xion`](https://github.com/burnt-labs/xion/blob/main/SECURITY.md)
-- Smart contracts — see [`burnt-labs/contracts`](https://github.com/burnt-labs/contracts/blob/main/SECURITY.md)
+- The chain node and its modules — see the
+  [Blockchain / DLT program](https://github.com/burnt-labs/bug-bounty/blob/main/programs/blockchain.md)
+- Smart contracts — see the
+  [Core Protocol Contracts program](https://github.com/burnt-labs/bug-bounty/blob/main/programs/contracts.md)
 
 **Vulnerability classes**
 
@@ -87,6 +91,9 @@ substantially more weight than one confined to this repository in isolation.
 | **MEDIUM**   | Incorrect verification behaviour requiring specific preconditions, or input handling that misrepresents what a verification result attests to |
 | **LOW**      | Valid, reproducible code-level issue with no direct impact on verification soundness, representing a meaningful hardening opportunity |
 
+Only **High** and **Critical** findings are reward eligible. The canonical
+program governs KYC, duplicate handling, and all other reward terms.
+
 Severity is assessed by Burnt Labs based on demonstrated impact. Reports
 submitted at a severity that does not match the definitions above are assessed
 as written; we do not reclassify or negotiate severity on a reporter's behalf.
@@ -106,6 +113,7 @@ vulnerabilities in good faith under this policy, do not exploit beyond what is
 necessary to confirm the finding, do not access or disclose user data, and do
 not disrupt production systems.
 
-Authorization to actively test extends only to assets named in a published Burnt
-Labs bug bounty program. Testing systems outside that scope is not authorized.
-Reporting a vulnerability you encountered incidentally is always welcome.
+Naming this repository as an asset establishes eligibility, not permission to
+test a production deployment. Authorization to actively test extends only to a
+local environment or infrastructure you control. Reporting a vulnerability you
+encountered incidentally is always welcome.
