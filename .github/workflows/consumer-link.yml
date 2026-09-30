@@ -1,0 +1,40 @@
+name: Consumer Link
+
+# Links the Linux musl archives inside the goreleaser-cross image that xion's
+# release build uses, with the same pinned Zig toolchain. A change that would
+# break a consumer's static release link fails here instead of at the
+# consumer's release tag.
+
+on:
+  workflow_call:
+
+jobs:
+  goreleaser-cross:
+    runs-on: ubicloud-standard-4
+    container: ghcr.io/goreleaser/goreleaser-cross:v1.25.3
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+
+      - name: Download musl archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: lib-linux_*_musl
+          path: artifacts/
+
+      - name: Place archives
+        run: |
+          for platform in linux_amd64_musl linux_arm64_musl; do
+            cp "artifacts/lib-${platform}/libbarretenberg.a" "lib/${platform}/libbarretenberg.a"
+          done
+
+      - name: Install pinned Zig toolchain
+        run: ./scripts/install-zig.sh /opt/zig-0.14.1 >> "$GITHUB_PATH"
+
+      - name: Link linux/amd64
+        run: ./scripts/verify-static-link.sh amd64 "${RUNNER_TEMP}/barretenberg-amd64.test"
+
+      - name: Link linux/arm64
+        run: ./scripts/verify-static-link.sh arm64 "${RUNNER_TEMP}/barretenberg-arm64.test"

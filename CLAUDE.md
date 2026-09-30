@@ -29,6 +29,7 @@ make build          # Build libbarretenberg.a for current platform
 make test           # Run Go tests (requires lib/<platform>/libbarretenberg.a)
 make bench          # Run benchmarks
 make build-all      # Cross-compile all supported platform variants
+make build-linux_amd64_musl   # musl archive with the pinned Zig toolchain
 ```
 
 The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb-external.a`, compiles the C++ wrapper shim, and merges them into `libbarretenberg.a`. Version and checksums come from `checksums.json`.
@@ -36,7 +37,8 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 ## Key conventions
 
 - **Bundled static archives** — All platform `libbarretenberg.a` files are committed to `lib/` so that `go get` + `go test` works without any bootstrap step. CI rebuilds and re-commits them when source files change. Release assets are also uploaded for standalone download.
-- **Linux ARM64 musl** — `make build-linux_arm64_musl` provisions the SHA-256-pinned Zig 0.14.1 toolchain from `scripts/install-zig.sh`. Consumers select the resulting archive with the `muslc` Go build tag.
+- **Linux musl (amd64 and arm64)** — `make build-linux_amd64_musl` / `make build-linux_arm64_musl` provision the SHA-256-pinned Zig 0.14.1 toolchain from `scripts/install-zig.sh`. Consumers select these archives with the `muslc` Go build tag and link with the same Zig toolchain; the result is fully static with the C++ runtime Zig bundles, so consumers install no libc++. The archives carry `wrapper/musl_compat.c` because Aztec's archive is compiled against glibc headers.
+- **Consumer link test** — `scripts/verify-static-link.sh` links the barretenberg test binary the way xion's release does and fails on an ELF interpreter, dynamic dependencies, a "statically linked applications requires" linker warning, a default stack request under 8 MiB (musl sizes threads from it), or skipped tests. `.github/workflows/consumer-link.yml` runs it inside `goreleaser-cross` on every PR and before every release.
 - **CGo paths** — `${SRCDIR}` in link files resolves to `barretenberg/`, so paths to `lib/` and `include/` use `../` prefix.
 - **Platform-specific C++ stdlib** — All platforms link `libc++`. This is set in both the link_*.go files and build-wrapper.sh.
 - **Debug symbol stripping** — Build script strips debug symbols to reduce archive size (~544MB → ~48MB on darwin).

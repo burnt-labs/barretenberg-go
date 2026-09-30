@@ -25,6 +25,12 @@ jobs:
             runner: ubicloud-standard-4
             aztec_arch: amd64
             aztec_os: linux
+          - platform: linux_amd64_musl
+            runner: ubicloud-standard-4
+            aztec_arch: amd64
+            aztec_os: linux
+            musl: true
+            cross_compile: true
           - platform: linux_arm64
             runner: ubicloud-standard-4-arm
             aztec_arch: arm64
@@ -78,25 +84,7 @@ jobs:
 
       - name: Verify static musl link
         if: matrix.musl == true
-        run: |
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 \
-            CC=aarch64-linux-musl-zig-cc \
-            CXX=aarch64-linux-musl-zig-c++ \
-            go test -c -tags muslc \
-            -ldflags "-linkmode=external -extldflags '-static'" \
-            -o "${RUNNER_TEMP}/barretenberg.test" ./barretenberg
-
-          file "${RUNNER_TEMP}/barretenberg.test" | grep -q 'statically linked'
-          if readelf -l "${RUNNER_TEMP}/barretenberg.test" | grep -q INTERP; then
-            echo "musl test binary unexpectedly has an ELF interpreter"
-            exit 1
-          fi
-          if readelf -d "${RUNNER_TEMP}/barretenberg.test" 2>&1 | grep -q NEEDED; then
-            echo "musl test binary unexpectedly has dynamic dependencies"
-            exit 1
-          fi
-
-          "${RUNNER_TEMP}/barretenberg.test" -test.v
+        run: ./scripts/verify-static-link.sh ${{ matrix.aztec_arch }} "${RUNNER_TEMP}/barretenberg.test"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -104,8 +92,12 @@ jobs:
           name: lib-${{ matrix.platform }}
           path: lib/${{ matrix.platform }}/libbarretenberg.a
 
-  commit-libs:
+  consumer-link:
     needs: build
+    uses: ./.github/workflows/consumer-link.yml
+
+  commit-libs:
+    needs: [build, consumer-link]
     runs-on: ubicloud-standard-2
     steps:
       - name: Configure SSH deploy key
@@ -138,7 +130,7 @@ jobs:
 
       - name: Place libs in repo
         run: |
-          for platform in linux_amd64 linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
+          for platform in linux_amd64 linux_amd64_musl linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
             mkdir -p "lib/${platform}"
             cp "artifacts/lib-${platform}/libbarretenberg.a" \
                "lib/${platform}/libbarretenberg.a"
@@ -164,7 +156,7 @@ jobs:
           # Upload each LFS pointer blob to GitHub's git object DB and collect tree entries.
           # Commits created via the GitHub API are automatically marked "Verified".
           TREE_JSON='[]'
-          for platform in linux_amd64 linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
+          for platform in linux_amd64 linux_amd64_musl linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
             f="lib/${platform}/libbarretenberg.a"
             LOCAL_BLOB=$(git ls-files --stage "$f" | awk '{print $2}')
             POINTER=$(git cat-file -p "$LOCAL_BLOB")
@@ -215,7 +207,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          for platform in linux_amd64 linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
+          for platform in linux_amd64 linux_amd64_musl linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
             cp "artifacts/lib-${platform}/libbarretenberg.a" \
                "release-assets/libbarretenberg_${platform}.a"
           done

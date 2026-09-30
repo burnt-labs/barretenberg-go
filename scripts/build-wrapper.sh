@@ -8,9 +8,9 @@
 # Version and checksums are read from checksums.json in the repo root.
 #
 # Usage:
-#   ./scripts/build-wrapper.sh --platform linux_amd64|linux_arm64|linux_arm64_musl|darwin_amd64|darwin_arm64
+#   ./scripts/build-wrapper.sh --platform linux_amd64|linux_amd64_musl|linux_arm64|linux_arm64_musl|darwin_amd64|darwin_arm64
 #
-# Supported platforms: linux_amd64, linux_arm64, linux_arm64_musl, darwin_amd64, darwin_arm64
+# Supported platforms: linux_amd64, linux_amd64_musl, linux_arm64, linux_arm64_musl, darwin_amd64, darwin_arm64
 #
 # Prerequisites:
 #   - clang++ with C++20 support (honours $CXX; defaults to clang++)
@@ -34,7 +34,7 @@ MSGPACK_COMMIT="$(python3 -c "import json; print(json.load(open('$REPO_ROOT/chec
 PLATFORM=""
 
 usage() {
-    echo "Usage: $0 --platform linux_amd64|linux_arm64|linux_arm64_musl|darwin_amd64|darwin_arm64" >&2
+    echo "Usage: $0 --platform linux_amd64|linux_amd64_musl|linux_arm64|linux_arm64_musl|darwin_amd64|darwin_arm64" >&2
     exit 1
 }
 
@@ -64,6 +64,12 @@ case "$PLATFORM" in
         LINUX_CROSS_TARGET="--target=x86_64-linux-gnu"
         LINUX_STDLIB="-stdlib=libc++"   # match Aztec's amd64 build (libc++)
         ;;
+    linux_amd64_musl)
+        AZTEC_ARCH="amd64"
+        AZTEC_OS="linux"
+        LINUX_CROSS_TARGET="-target x86_64-linux-musl"
+        LINUX_STDLIB="-stdlib=libc++"
+        ;;
     linux_arm64)
         AZTEC_ARCH="arm64"
         AZTEC_OS="linux"
@@ -88,15 +94,18 @@ case "$PLATFORM" in
         ;;
     *)
         echo "ERROR: unsupported platform '$PLATFORM'." >&2
-        echo "  Supported platforms: linux_amd64, linux_arm64, linux_arm64_musl, darwin_amd64, darwin_arm64" >&2
+        echo "  Supported platforms: linux_amd64, linux_amd64_musl, linux_arm64, linux_arm64_musl, darwin_amd64, darwin_arm64" >&2
         exit 1
         ;;
 esac
 
-if [[ "$PLATFORM" == "linux_arm64_musl" ]]; then
+MUSL=false
+[[ "$PLATFORM" == *_musl ]] && MUSL=true
+
+if [[ "$MUSL" == true ]]; then
     if [[ "${CC:-}" != *zig-cc || "${CXX:-}" != *zig-c++ || "${AR:-}" != *zig-ar ]]; then
-        echo "ERROR: linux_arm64_musl requires the pinned Zig toolchain wrappers." >&2
-        echo "  Run 'make build-linux_arm64_musl', or set CC=zig-cc CXX=zig-c++ AR=zig-ar" >&2
+        echo "ERROR: $PLATFORM requires the pinned Zig toolchain wrappers." >&2
+        echo "  Run 'make build-$PLATFORM', or set CC=zig-cc CXX=zig-c++ AR=zig-ar" >&2
         echo "  after installing the toolchain with scripts/install-zig.sh." >&2
         exit 1
     fi
@@ -255,9 +264,9 @@ ${CXX:-clang++} "${CLANG_FLAGS[@]}"
 echo "  Compiled: $WRAPPER_O"
 
 EXTRA_OBJECTS=()
-if [[ "$PLATFORM" == "linux_arm64_musl" ]]; then
+if [[ "$MUSL" == true ]]; then
     MUSL_COMPAT_O="$WORK_DIR/musl_compat.o"
-    ${CC:-clang} -target aarch64-linux-musl -fPIC -O2 \
+    ${CC:-clang} $LINUX_CROSS_TARGET -fPIC -O2 \
         -c "$REPO_ROOT/wrapper/musl_compat.c" -o "$MUSL_COMPAT_O"
     EXTRA_OBJECTS+=("$MUSL_COMPAT_O")
     echo "  Compiled: $MUSL_COMPAT_O"
