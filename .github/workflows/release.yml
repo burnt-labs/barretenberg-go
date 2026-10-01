@@ -107,20 +107,15 @@ jobs:
   # the release and check it against checksums they commit themselves. The Go
   # module zip only carries the lib/ LFS pointers, so nothing is committed back
   # to main here; main only changes through pull requests.
-  release:
+  assets:
     needs: [build, consumer-link]
     runs-on: ubicloud-standard-2
-    permissions:
-      contents: write
 
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
+          pattern: lib-*
           path: artifacts/
 
       - name: Prepare release assets
@@ -135,40 +130,76 @@ jobs:
       - name: Generate checksums
         run: |
           cd release-assets
-          sha256sum *.a > checksums.txt
+          sha256sum -- *.a > checksums.txt
           cat checksums.txt
 
-      # Only main publishes. A workflow_dispatch on another branch runs the
-      # full build, link test and asset preparation as a dry run.
+      - name: Upload release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: release-assets/
+          if-no-files-found: error
+
+  # Only main publishes, and only this job holds a write token. A
+  # workflow_dispatch on another branch stops after the assets job: a dry run
+  # of the full build, link test and asset preparation.
+  publish:
+    needs: assets
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubicloud-standard-2
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets/
+
       - name: Determine next version
         id: semver
-        if: github.ref == 'refs/heads/main'
         uses: go-semantic-release/action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           allow-initial-development-versions: true
           dry: true
 
-      - name: Create release with assets
-        if: steps.semver.outputs.version != '' && github.ref == 'refs/heads/main'
+      - name: Publish release
+        if: steps.semver.outputs.version != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: v${{ steps.semver.outputs.version }}
         run: |
-          # Draft first so the tag and release only appear once every asset is
-          # uploaded, and tag the commit that was built, not whatever main
-          # points at by the time the upload finishes.
-          gh release create "$VERSION" \
-            --draft \
-            --target "$GITHUB_SHA" \
-            --title "$VERSION" \
-            --generate-notes \
-            release-assets/*
-          gh release edit "$VERSION" --draft=false --latest
+          # Upload into a draft and publish only once every asset is there, so
+          # consumers never see a release with missing archives. The tag is
+          # created at the commit that was built, not wherever main points by
+          # the time the upload finishes. A draft left by an interrupted run
+          # (it creates no tag, so a rerun computes the same version) is
+          # retargeted and its assets replaced; a published release is never
+          # touched.
+          if IS_DRAFT=$(gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "::error::$VERSION is already published; refusing to modify it"
+              exit 1
+            fi
+            echo "Resuming draft $VERSION"
+            gh release edit "$VERSION" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
+            gh release upload "$VERSION" -R "$GITHUB_REPOSITORY" --clobber release-assets/*
+          else
+            gh release create "$VERSION" -R "$GITHUB_REPOSITORY" \
+              --draft \
+              --target "$GITHUB_SHA" \
+              --title "$VERSION" \
+              --generate-notes \
+              release-assets/*
+          fi
+          gh release edit "$VERSION" -R "$GITHUB_REPOSITORY" --draft=false --latest
 
           echo "Released $VERSION at $GITHUB_SHA with assets:"
           ls release-assets/
-
-      - name: Report dry run
-        if: github.ref != 'refs/heads/main'
-        run: echo "Dry run on $GITHUB_REF at $GITHUB_SHA; assets prepared, nothing published."

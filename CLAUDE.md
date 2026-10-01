@@ -46,7 +46,7 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 
 ## CI
 
-`.github/workflows/release.yml` builds every platform variant on push to main (when source files change) or on workflow_dispatch, and runs the consumer link test. The `release` job then uses `go-semantic-release` to determine the next semver from conventional commit messages, creates a GitHub Release tagged at the built commit, and uploads the `libbarretenberg_<platform>.a` archives plus `checksums.txt` as release assets. It writes nothing to `main`. A `workflow_dispatch` on any other branch is a dry run: everything up to publishing runs, no release is created.
+`.github/workflows/release.yml` builds every platform variant on push to main (when source files change) or on workflow_dispatch, and runs the consumer link test. The `assets` job collects the `libbarretenberg_<platform>.a` archives and `checksums.txt`. The `publish` job (main only, the one job with a write token) then uses `go-semantic-release` to determine the next semver from conventional commit messages and publishes a GitHub Release tagged at the built commit with those assets. Nothing is written to `main`. A `workflow_dispatch` on any other branch is a dry run that stops before `publish`.
 
 Conventional commit prefixes: `feat:` = minor bump, `fix:` = patch bump, `feat!:` or `BREAKING CHANGE:` = major bump.
 
