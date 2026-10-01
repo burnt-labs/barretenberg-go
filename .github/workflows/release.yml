@@ -14,7 +14,13 @@ on:
       - "Makefile"
 
 permissions:
-  contents: write
+  contents: read
+
+# Releases from one ref run one at a time, so two quick merges cannot both
+# compute the same next version.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -96,112 +102,20 @@ jobs:
     needs: build
     uses: ./.github/workflows/consumer-link.yml
 
-  commit-libs:
+  # The release assets are the distribution channel: consumers (xion's
+  # scripts/download-barretenberg.sh) fetch libbarretenberg_<platform>.a from
+  # the release and check it against checksums they commit themselves. The Go
+  # module zip only carries the lib/ LFS pointers, so nothing is committed back
+  # to main here; main only changes through pull requests.
+  assets:
     needs: [build, consumer-link]
     runs-on: ubicloud-standard-2
+
     steps:
-      - name: Configure SSH deploy key
-        uses: webfactory/ssh-agent@v0.10.0
-        with:
-          ssh-private-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
-
-      - name: Install git-lfs
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq git-lfs
-          git lfs install --system
-
-      - uses: actions/checkout@v5
-        with:
-          ssh-key: ${{ secrets.BARRETENBERG_SSH_KEY }}
-          lfs: false
-
-      - name: Configure LFS HTTPS credentials
-        run: |
-          git config credential.helper store
-          printf 'https://x-access-token:%s@github.com\n' \
-            "${{ secrets.GITHUB_TOKEN }}" >> ~/.git-credentials
-          git config lfs.url \
-            "https://github.com/${{ github.repository }}.git/info/lfs"
-
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
-          path: artifacts/
-
-      - name: Place libs in repo
-        run: |
-          for platform in linux_amd64 linux_amd64_musl linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
-            mkdir -p "lib/${platform}"
-            cp "artifacts/lib-${platform}/libbarretenberg.a" \
-               "lib/${platform}/libbarretenberg.a"
-          done
-          ls -lh lib/*/libbarretenberg.a
-
-      - name: Commit and push updated libs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git add lib/
-          if git diff --cached --quiet; then
-            echo "No changes to libs — skipping commit"
-            exit 0
-          fi
-
-          OWNER="${GITHUB_REPOSITORY_OWNER}"
-          REPO="${GITHUB_REPOSITORY#*/}"
-          BRANCH="${GITHUB_REF_NAME}"
-          HEAD_SHA=$(git rev-parse HEAD)
-          BASE_TREE=$(git rev-parse "HEAD^{tree}")
-
-          # Upload each LFS pointer blob to GitHub's git object DB and collect tree entries.
-          # Commits created via the GitHub API are automatically marked "Verified".
-          TREE_JSON='[]'
-          for platform in linux_amd64 linux_amd64_musl linux_arm64 linux_arm64_musl darwin_amd64 darwin_arm64; do
-            f="lib/${platform}/libbarretenberg.a"
-            LOCAL_BLOB=$(git ls-files --stage "$f" | awk '{print $2}')
-            POINTER=$(git cat-file -p "$LOCAL_BLOB")
-            LFS_OID=$(printf '%s\n' "$POINTER" | awk '/^oid sha256:/ { sub(/^sha256:/, "", $2); print $2 }')
-            if [ -z "$LFS_OID" ]; then
-              echo "Expected $f to be staged as an LFS pointer"
-              exit 1
-            fi
-            git lfs push --object-id origin "$LFS_OID"
-            BLOB_SHA=$(gh api "repos/$OWNER/$REPO/git/blobs" \
-              -f content="$POINTER" -f encoding="utf-8" --jq '.sha')
-            TREE_JSON=$(printf '%s' "$TREE_JSON" | jq \
-              --arg p "$f" --arg s "$BLOB_SHA" \
-              '. + [{"path":$p,"mode":"100644","type":"blob","sha":$s}]')
-          done
-
-          NEW_TREE=$(gh api "repos/$OWNER/$REPO/git/trees" \
-            --input <(jq -n \
-              --argjson tree "$TREE_JSON" \
-              --arg base "$BASE_TREE" \
-              '{"base_tree":$base,"tree":$tree}') \
-            --jq '.sha')
-
-          NEW_COMMIT=$(gh api "repos/$OWNER/$REPO/git/commits" \
-            -f message="chore: update bundled static libraries" \
-            -f tree="$NEW_TREE" \
-            -f "parents[]=$HEAD_SHA" \
-            --jq '.sha')
-
-          gh api "repos/$OWNER/$REPO/git/refs/heads/$BRANCH" \
-            -X PATCH -f sha="$NEW_COMMIT"
-          echo "Created verified commit $NEW_COMMIT on $BRANCH"
-
-  release:
-    needs: commit-libs
-    runs-on: ubicloud-standard-2
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
-        with:
+          pattern: lib-*
           path: artifacts/
 
       - name: Prepare release assets
@@ -216,8 +130,37 @@ jobs:
       - name: Generate checksums
         run: |
           cd release-assets
-          sha256sum *.a > checksums.txt
+          sha256sum -- *.a > checksums.txt
           cat checksums.txt
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: release-assets/
+          if-no-files-found: error
+
+  # Only main publishes, and only this job holds a write token. A
+  # workflow_dispatch on another branch stops after the assets job: a dry run
+  # of the full build, link test and asset preparation.
+  publish:
+    needs: assets
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubicloud-standard-2
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets/
 
       - name: Determine next version
         id: semver
@@ -227,16 +170,34 @@ jobs:
           allow-initial-development-versions: true
           dry: true
 
-      - name: Create release with assets
+      - name: Publish release
         if: steps.semver.outputs.version != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: v${{ steps.semver.outputs.version }}
         run: |
-          gh release create "$VERSION" \
+          # Upload into a draft and publish only once every asset is there, so
+          # consumers never see a release with missing archives. The tag is
+          # created at the commit that was built, not wherever main points by
+          # the time the upload finishes. A draft left by an interrupted run
+          # has no tag, so a rerun computes the same version: discard that
+          # draft and start over, so its notes and target match this commit.
+          # A published release is never touched.
+          if IS_DRAFT=$(gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "::error::$VERSION is already published; refusing to modify it"
+              exit 1
+            fi
+            echo "Discarding leftover draft $VERSION"
+            gh release delete "$VERSION" -R "$GITHUB_REPOSITORY" --yes
+          fi
+          gh release create "$VERSION" -R "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$GITHUB_SHA" \
             --title "$VERSION" \
             --generate-notes \
             release-assets/*
+          gh release edit "$VERSION" -R "$GITHUB_REPOSITORY" --draft=false --latest
 
-          echo "Released $VERSION with assets:"
+          echo "Released $VERSION at $GITHUB_SHA with assets:"
           ls release-assets/
