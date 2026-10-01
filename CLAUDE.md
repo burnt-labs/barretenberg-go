@@ -36,7 +36,7 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 
 ## Key conventions
 
-- **Bundled static archives** — All platform `libbarretenberg.a` files are committed to `lib/` so that `go get` + `go test` works without any bootstrap step. CI rebuilds and re-commits them when source files change. Release assets are also uploaded for standalone download.
+- **Static archives** — `lib/<platform>/libbarretenberg.a` is tracked through Git LFS, so a clone with LFS gets an archive to link, but the Go module zip carries only the LFS pointer files. The GitHub Release assets (`libbarretenberg_<platform>.a`) are the distribution channel: consumers download them and verify them against checksums they commit themselves (xion: `scripts/download-barretenberg.sh` and `scripts/barretenberg-checksums.txt`). CI does not commit archives back to `main`; `main` changes only through pull requests.
 - **Linux musl (amd64 and arm64)** — `make build-linux_amd64_musl` / `make build-linux_arm64_musl` provision the SHA-256-pinned Zig 0.14.1 toolchain from `scripts/install-zig.sh`. Consumers select these archives with the `muslc` Go build tag and link with the same Zig toolchain; the result is fully static with the C++ runtime Zig bundles, so consumers install no libc++. The archives carry `wrapper/musl_compat.c` because Aztec's archive is compiled against glibc headers.
 - **Consumer link test** — `scripts/verify-static-link.sh` links the barretenberg test binary the way xion's release does and fails on an ELF interpreter, dynamic dependencies, a "statically linked applications requires" linker warning, a default stack request under 8 MiB (musl sizes threads from it), or skipped tests. `.github/workflows/consumer-link.yml` runs it inside `goreleaser-cross` on every PR and before every release.
 - **CGo paths** — `${SRCDIR}` in link files resolves to `barretenberg/`, so paths to `lib/` and `include/` use `../` prefix.
@@ -46,7 +46,7 @@ The build script (`scripts/build-wrapper.sh`) downloads Aztec's pre-built `libbb
 
 ## CI
 
-`.github/workflows/release.yml` builds every platform variant on push to main (when source files change) or on workflow_dispatch. The `release` job uses `go-semantic-release` to determine the next semver from conventional commit messages, creates a GitHub Release, and uploads the `libbarretenberg_<platform>.a` archives as release assets.
+`.github/workflows/release.yml` builds every platform variant on push to main (when source files change) or on workflow_dispatch, and runs the consumer link test. The `release` job then uses `go-semantic-release` to determine the next semver from conventional commit messages, creates a GitHub Release tagged at the built commit, and uploads the `libbarretenberg_<platform>.a` archives plus `checksums.txt` as release assets. It writes nothing to `main`. A `workflow_dispatch` on any other branch is a dry run: everything up to publishing runs, no release is created.
 
 Conventional commit prefixes: `feat:` = minor bump, `fix:` = patch bump, `feat!:` or `BREAKING CHANGE:` = major bump.
 
