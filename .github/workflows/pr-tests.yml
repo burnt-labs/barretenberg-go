@@ -3,7 +3,7 @@ name: PR Tests
 on:
   pull_request:
     branches: [main]
-    paths: ['barretenberg/**', 'wrapper/**', 'include/**', 'checksums.json', 'scripts/**', 'Makefile']
+    paths: ['barretenberg/**', 'wrapper/**', 'include/**', 'checksums.json', 'scripts/**', 'Makefile', '.github/workflows/**']
 
 jobs:
   test:
@@ -14,6 +14,11 @@ jobs:
             runner: ubicloud-standard-4
             aztec_arch: amd64
             aztec_os: linux
+          - platform: linux_amd64_musl
+            runner: ubicloud-standard-4
+            aztec_arch: amd64
+            aztec_os: linux
+            musl: true
           - platform: linux_arm64
             runner: ubicloud-standard-4-arm
             aztec_arch: arm64
@@ -57,25 +62,19 @@ jobs:
       - name: Verify musl archive
         if: matrix.musl == true
         run: |
-          ar t lib/linux_arm64_musl/libbarretenberg.a >/dev/null
-          test "$(ar t lib/linux_arm64_musl/libbarretenberg.a | grep -cx barretenberg_wrapper.o)" -eq 1
-          test "$(ar t lib/linux_arm64_musl/libbarretenberg.a | grep -cx musl_compat.o)" -eq 1
+          lib="lib/${{ matrix.platform }}/libbarretenberg.a"
+          ar t "$lib" >/dev/null
+          test "$(ar t "$lib" | grep -cx barretenberg_wrapper.o)" -eq 1
+          test "$(ar t "$lib" | grep -cx musl_compat.o)" -eq 1
+          ./scripts/verify-static-link.sh ${{ matrix.aztec_arch }} "${RUNNER_TEMP}/barretenberg.test"
 
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 \
-            CC=aarch64-linux-musl-zig-cc \
-            CXX=aarch64-linux-musl-zig-c++ \
-            go test -c -tags muslc \
-            -ldflags "-linkmode=external -extldflags '-static'" \
-            -o "${RUNNER_TEMP}/barretenberg.test" ./barretenberg
+      - name: Upload musl archive
+        if: matrix.musl == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: lib-${{ matrix.platform }}
+          path: lib/${{ matrix.platform }}/libbarretenberg.a
 
-          file "${RUNNER_TEMP}/barretenberg.test" | grep -q 'statically linked'
-          if readelf -l "${RUNNER_TEMP}/barretenberg.test" | grep -q INTERP; then
-            echo "musl test binary unexpectedly has an ELF interpreter"
-            exit 1
-          fi
-          if readelf -d "${RUNNER_TEMP}/barretenberg.test" 2>&1 | grep -q NEEDED; then
-            echo "musl test binary unexpectedly has dynamic dependencies"
-            exit 1
-          fi
-
-          "${RUNNER_TEMP}/barretenberg.test" -test.v
+  consumer-link:
+    needs: test
+    uses: ./.github/workflows/consumer-link.yml

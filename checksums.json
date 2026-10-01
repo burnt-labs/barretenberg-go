@@ -7,6 +7,10 @@
       "file": "barretenberg-static-amd64-linux.tar.gz",
       "sha256": "3726c437ef017d6a0c0d9b5f0e854197e364bc33bf7e7ccd20aee8cac7c12e6b"
     },
+    "linux_amd64_musl": {
+      "file": "barretenberg-static-amd64-linux.tar.gz",
+      "sha256": "3726c437ef017d6a0c0d9b5f0e854197e364bc33bf7e7ccd20aee8cac7c12e6b"
+    },
     "linux_arm64": {
       "file": "barretenberg-static-arm64-linux.tar.gz",
       "sha256": "12e4db24d1f6e6bbbaec360ff8eeab2d4665afd8f40b1302e4ddae6a4065d098"
