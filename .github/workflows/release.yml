@@ -180,25 +180,23 @@ jobs:
           # consumers never see a release with missing archives. The tag is
           # created at the commit that was built, not wherever main points by
           # the time the upload finishes. A draft left by an interrupted run
-          # (it creates no tag, so a rerun computes the same version) is
-          # retargeted and its assets replaced; a published release is never
-          # touched.
+          # has no tag, so a rerun computes the same version: discard that
+          # draft and start over, so its notes and target match this commit.
+          # A published release is never touched.
           if IS_DRAFT=$(gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
             if [ "$IS_DRAFT" != "true" ]; then
               echo "::error::$VERSION is already published; refusing to modify it"
               exit 1
             fi
-            echo "Resuming draft $VERSION"
-            gh release edit "$VERSION" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
-            gh release upload "$VERSION" -R "$GITHUB_REPOSITORY" --clobber release-assets/*
-          else
-            gh release create "$VERSION" -R "$GITHUB_REPOSITORY" \
-              --draft \
-              --target "$GITHUB_SHA" \
-              --title "$VERSION" \
-              --generate-notes \
-              release-assets/*
+            echo "Discarding leftover draft $VERSION"
+            gh release delete "$VERSION" -R "$GITHUB_REPOSITORY" --yes
           fi
+          gh release create "$VERSION" -R "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes \
+            release-assets/*
           gh release edit "$VERSION" -R "$GITHUB_REPOSITORY" --draft=false --latest
 
           echo "Released $VERSION at $GITHUB_SHA with assets:"
